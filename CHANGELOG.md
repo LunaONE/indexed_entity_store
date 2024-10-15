@@ -3,6 +3,7 @@
 * Typed indices: All queries not check the parameter types, such that one does not accidentally pass a `String` to an `int` index field for example.
   * These are checked at runtime, as the interface does not allow specifying the type signature per column
   * Additional the index-building specification has been changed, to be able to discern field which are nullable and those which must not be
+* Add more query methods: less than (or equal) and greater than (or equal)
 
 ## 1.1.1
 

@@ -53,15 +53,71 @@ class _EqualQuery extends Query {
 
   @override
   (String, List) _entityKeysQuery() {
-    if (value == null) {
+    if (this.value == null) {
       return (
         'SELECT `entity` FROM `index` WHERE `type` = ? AND `field` = "$field" AND `value` IS NULL',
         [entity],
       );
     }
 
+    final value = this.value is DateTime
+        ? (this.value as DateTime).microsecondsSinceEpoch
+        : this.value;
+
     return (
       'SELECT `entity` FROM `index` WHERE `type` = ? AND `field` = "$field" AND `value` = ?',
+      [entity, value],
+    );
+  }
+}
+
+class _GreaterThanQuery extends Query {
+  _GreaterThanQuery(this.entity, this.field, this.value) {
+    if (value == null) {
+      throw Exception(
+        'Null value can not be used for "greater than" query on $entity.$field',
+      );
+    }
+  }
+
+  final String entity;
+  final String field;
+  final dynamic value;
+
+  @override
+  (String, List) _entityKeysQuery() {
+    final value = this.value is DateTime
+        ? (this.value as DateTime).microsecondsSinceEpoch
+        : this.value;
+
+    return (
+      'SELECT `entity` FROM `index` WHERE `type` = ? AND `field` = "$field" AND `value` > ?',
+      [entity, value],
+    );
+  }
+}
+
+class _LessThanQuery extends Query {
+  _LessThanQuery(this.entity, this.field, this.value) {
+    if (value == null) {
+      throw Exception(
+        'Null value can not be used for "less than" query on $entity.$field',
+      );
+    }
+  }
+
+  final String entity;
+  final String field;
+  final dynamic value;
+
+  @override
+  (String, List) _entityKeysQuery() {
+    final value = this.value is DateTime
+        ? (this.value as DateTime).microsecondsSinceEpoch
+        : this.value;
+
+    return (
+      'SELECT `entity` FROM `index` WHERE `type` = ? AND `field` = "$field" AND `value` < ?',
       [entity, value],
     );
   }

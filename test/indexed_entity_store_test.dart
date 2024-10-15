@@ -412,6 +412,127 @@ void main() {
       );
     },
   );
+
+  test('Query operations', () async {
+    final path = '/tmp/index_entity_store_test_${FlutterTimeline.now}.sqlite3';
+
+    final db = IndexedEntityDabase.open(path);
+
+    final indexedEntityConnector =
+        IndexedEntityConnector<_AllSupportedIndexTypes, String, String>(
+      entityKey: 'indexed_entity',
+      getPrimaryKey: (f) => f.string,
+      getIndices: (index) {
+        index((e) => e.string, as: 'string');
+        index((e) => e.stringOpt, as: 'stringOpt');
+        index((e) => e.number, as: 'number');
+        index((e) => e.numberOpt, as: 'numberOpt');
+        index((e) => e.integer, as: 'integer');
+        index((e) => e.integerOpt, as: 'integerOpt');
+        index((e) => e.float, as: 'float');
+        index((e) => e.floatOpt, as: 'floatOpt');
+        index((e) => e.boolean, as: 'boolean');
+        index((e) => e.booleanOpt, as: 'booleanOpt');
+        index((e) => e.dateTime, as: 'dateTime');
+        index((e) => e.dateTimeOpt, as: 'dateTimeOpt');
+      },
+      serialize: (f) => jsonEncode(f.toJSON()),
+      deserialize: (s) => _AllSupportedIndexTypes.fromJSON(
+        jsonDecode(s) as Map<String, dynamic>,
+      ),
+    );
+
+    final store = db.entityStore(indexedEntityConnector);
+
+    expect(store.getAllOnce(), isEmpty);
+
+    final now = DateTime.now();
+
+    store.insert(
+      _AllSupportedIndexTypes.defaultIfNull(
+        string: 'default',
+        dateTime: now,
+        float: 1000,
+      ),
+    );
+
+    expect(
+      store.queryOnce((cols) => cols['dateTime'].equals(now)),
+      hasLength(1),
+    );
+    expect(
+      store.queryOnce((cols) => cols['dateTime'].equals(now.toUtc())),
+      hasLength(1),
+    );
+
+    expect(
+      store.queryOnce((cols) => cols['dateTimeOpt'].equals(null)),
+      hasLength(1),
+    );
+
+    // DateTime: less than, greater than
+    expect(
+      store.queryOnce((cols) => cols['dateTime'].lessThan(now)),
+      isEmpty,
+    );
+    expect(
+      store.queryOnce((cols) => cols['dateTime'].lessThanOrEqual(now)),
+      hasLength(1),
+    );
+    expect(
+      store.queryOnce((cols) => cols['dateTime'].greaterThan(now)),
+      isEmpty,
+    );
+    expect(
+      store.queryOnce((cols) => cols['dateTime'].greaterThanOrEqual(now)),
+      hasLength(1),
+    );
+    expect(
+      store.queryOnce(
+        (cols) => cols['dateTime'].greaterThan(
+          now.subtract(const Duration(seconds: 1)),
+        ),
+      ),
+      hasLength(1),
+    );
+
+    // Null field: Should not be found for less than, equal, or greater than
+    expect(
+      store.queryOnce((cols) => cols['dateTimeOpt'].equals(now)),
+      isEmpty,
+    );
+    expect(
+      store.queryOnce((cols) => cols['dateTimeOpt'].lessThan(now)),
+      isEmpty,
+    );
+    expect(
+      store.queryOnce((cols) => cols['dateTimeOpt'].lessThanOrEqual(now)),
+      isEmpty,
+    );
+    expect(
+      store.queryOnce((cols) => cols['dateTimeOpt'].greaterThan(now)),
+      isEmpty,
+    );
+    expect(
+      store.queryOnce((cols) => cols['dateTimeOpt'].greaterThanOrEqual(now)),
+      isEmpty,
+    );
+
+    /// Numeric
+    expect(store.queryOnce((cols) => cols['float'].equals(1000)), hasLength(1));
+    expect(
+      store.queryOnce((cols) => cols['float'].greaterThan(1000)),
+      isEmpty,
+    );
+    expect(
+      store.queryOnce((cols) => cols['float'].greaterThan(999.6)),
+      hasLength(1),
+    );
+    expect(
+      store.queryOnce((cols) => cols['float'].greaterThanOrEqual(1000.0)),
+      hasLength(1),
+    );
+  });
 }
 
 class _FooEntity {
