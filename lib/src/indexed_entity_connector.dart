@@ -1,9 +1,11 @@
+import 'package:indexed_entity_store/indexed_entity_store.dart';
+
 abstract class IndexedEntityConnector<T /* entity */, K /* primary key */,
     S /* storage format */ > {
   factory IndexedEntityConnector({
     required String entityKey,
     required K Function(T) getPrimaryKey,
-    required Map<String, dynamic> Function(T?) getIndices,
+    required void Function(IndexCollector<T> index) getIndices,
     required S Function(T) serialize,
     required T Function(S) deserialize,
   }) {
@@ -20,7 +22,7 @@ abstract class IndexedEntityConnector<T /* entity */, K /* primary key */,
 
   K getPrimaryKey(T e);
 
-  Map<String, dynamic> getIndices(T? e);
+  void getIndices(IndexCollector<T> index);
 
   /// String or bytes
   S serialize(T e);
@@ -43,7 +45,7 @@ class _IndexedEntityConnector<T, K, S>
 
   final K Function(T) _getPrimaryKey;
 
-  final Map<String, dynamic> Function(T? e) _getIndices;
+  final void Function(IndexCollector<T> index) _getIndices;
 
   final S Function(T) _serialize;
 
@@ -59,5 +61,5 @@ class _IndexedEntityConnector<T, K, S>
   T deserialize(S s) => _deserialize(s);
 
   @override
-  Map<String, dynamic> getIndices(T? e) => _getIndices(e);
+  void getIndices(IndexCollector<T> index) => _getIndices(index);
 }

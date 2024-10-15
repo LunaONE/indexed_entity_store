@@ -11,7 +11,7 @@ class IndexColumns {
     final col = _indexColumns[columnName];
 
     if (col == null) {
-      throw Exception('"$col" is not a known index column');
+      throw Exception('"$columnName" is not a known index column');
     }
 
     return col;

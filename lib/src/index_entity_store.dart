@@ -10,13 +10,28 @@ part 'query_result.dart';
 typedef QueryResultMapping<T> = (T Function(), QueryResult<T>);
 
 class IndexedEntityStore<T, K> {
-  IndexedEntityStore(this._database, this._connector) {
+  IndexedEntityStore(
+    this._database,
+    this._connector,
+  ) {
+    {
+      final collector = IndexCollector<T>(_connector.entityKey);
+
+      _connector.getIndices(collector);
+
+      _indexColumns = IndexColumns({
+        for (final col in collector._indices) col._field: col,
+      });
+    }
+
     _ensureIndexIsUpToDate();
   }
 
   final Database _database;
 
   final IndexedEntityConnector<T, K, dynamic> _connector;
+
+  late final IndexColumns _indexColumns;
 
   String get _entityKey => _connector.entityKey;
 
@@ -106,19 +121,7 @@ class IndexedEntityStore<T, K> {
   }
 
   List<T> queryOnce(QueryBuilder q) {
-    final columns = _connector.getIndices(null).keys.toList();
-
-    final indexColumns = IndexColumns(
-      {
-        for (final column in columns)
-          column: IndexColumn(
-            entity: _entityKey,
-            field: column,
-          ),
-      },
-    );
-
-    final (w, s) = q(indexColumns)._entityKeysQuery();
+    final (w, s) = q(_indexColumns)._entityKeysQuery();
 
     final query =
         'SELECT value FROM `entity` WHERE `type` = ? AND `key` IN ( $w )';
@@ -151,10 +154,15 @@ class IndexedEntityStore<T, K> {
       [_entityKey, _connector.getPrimaryKey(e)],
     );
 
-    for (final MapEntry(:key, :value) in _connector.getIndices(e).entries) {
+    for (final indexColumn in _indexColumns._indexColumns.values) {
       _database.execute(
         'INSERT INTO `index` (`type`, `entity`, `field`, `value`) VALUES (?, ?, ?, ?)',
-        [_entityKey, _connector.getPrimaryKey(e), key, value],
+        [
+          _entityKey,
+          _connector.getPrimaryKey(e),
+          indexColumn._field,
+          indexColumn._getIndexValue(e),
+        ],
       );
     }
   }
@@ -187,7 +195,7 @@ class IndexedEntityStore<T, K> {
         .map((r) => r['field'] as String)
         .toSet();
 
-    final currentEntityIndexedFields = _connector.getIndices(null).keys.toSet();
+    final currentEntityIndexedFields = _indexColumns._indexColumns.keys.toSet();
 
     final missingFields =
         currentEntityIndexedFields.difference(currentlyIndexedFields);
@@ -225,5 +233,23 @@ class IndexedEntityStore<T, K> {
     for (final mapping in _entityResults) {
       mapping.$2._value.value = mapping.$1();
     }
+  }
+}
+
+class IndexCollector<T> {
+  IndexCollector(this._entityKey);
+
+  final String _entityKey;
+
+  final _indices = <IndexColumn<T, dynamic>>[];
+
+  void call<I>(I Function(T e) index, {required String as}) {
+    _indices.add(
+      IndexColumn<T, I>(
+        entity: _entityKey,
+        field: as,
+        getIndexValue: index,
+      ),
+    );
   }
 }
