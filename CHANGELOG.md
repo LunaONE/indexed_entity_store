@@ -1,3 +1,7 @@
+## 1.1.1
+
+* Add `deleteEntity` in case the caller does not have access to the primary key used by the connector (e.g. if it's a combined one)
+
 ## 1.1.0
 
 * Adds reactivity

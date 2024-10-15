@@ -163,6 +163,10 @@ class IndexedEntityStore<T, K> {
     deleteMany({key});
   }
 
+  void deleteEntity(T entity) {
+    delete(_connector.getPrimaryKey(entity));
+  }
+
   void deleteMany(Set<K> keys) {
     for (final key in keys) {
       _database.execute(

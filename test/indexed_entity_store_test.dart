@@ -190,9 +190,13 @@ void main() {
       expect(fooByQueryValueNotExists.value, isEmpty);
 
       // add another one only matching the _all_ query
-      fooStore.insert(
-        _FooEntity(id: 2, valueA: 'something_else', valueB: 2, valueC: true),
+      final entity2 = _FooEntity(
+        id: 2,
+        valueA: 'something_else',
+        valueB: 2,
+        valueC: true,
       );
+      fooStore.insert(entity2);
 
       expect(allFoos.value, hasLength(2));
       expect(fooById1.value, isA<_FooEntity>());
@@ -219,7 +223,7 @@ void main() {
       fooByQueryValueNotExists.dispose();
 
       // No more subscriptions, so this has no effect
-      fooStore.delete(2);
+      fooStore.deleteEntity(entity2);
 
       expect(fooStore.subscriptionCount, 0);
     },
