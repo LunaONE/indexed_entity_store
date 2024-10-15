@@ -45,10 +45,11 @@ final db = IndexedEntityDabase.open('/tmp/appdata.sqlite3'); // in practice put 
 
 final todos = db.entityStore(todoConnector);
 
-final someTodo /* Todo? */ = todos.get(99); // returns TODO with ID 99, if any
+final someTodo /* Todo? */ = todos.getOnce(99); // returns TODO with ID 99, if any
+// Alternatively use `todos.get(99)` to get a subscription (`ValueListenable<Todo?>`) to the item, getting notified of every update
 
 // While using the String columns here is not super nice, this works without code gen and will throw if using a non-indexed column
-final openTodos /* List<Todo?> */ = todos.query((cols) => cols['done'].equals(false));
+final openTodos /* List<Todo?> */ = todos.queryOnce((cols) => cols['done'].equals(false));
 
 todos.insert(
   Todo(id: 99, text: 'Publish new version', done: false),

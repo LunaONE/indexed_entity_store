@@ -5,6 +5,9 @@ import 'package:sqlite3/sqlite3.dart';
 part 'index_column.dart';
 part 'index_columns.dart';
 part 'query.dart';
+part 'query_result.dart';
+
+typedef QueryResultMapping<T> = (T Function(), QueryResult<T>);
 
 class IndexedEntityStore<T, K> {
   IndexedEntityStore(this._database, this._connector) {
@@ -17,7 +20,38 @@ class IndexedEntityStore<T, K> {
 
   String get _entityKey => _connector.entityKey;
 
-  T? get(K key) {
+  final Map<K, List<QueryResultMapping>> _singleEntityResults = {};
+
+  final List<QueryResultMapping> _entityResults = [];
+
+  @visibleForTesting
+  int get subscriptionCount =>
+      _singleEntityResults.values.expand((mappings) => mappings).length +
+      _entityResults.length;
+
+  QueryResult<T?> get(K key) {
+    final QueryResultMapping<T?> mapping = (
+      () => getOnce(key),
+      QueryResult._(
+        initialValue: getOnce(key),
+        onDispose: (r) {
+          _singleEntityResults[key] = _singleEntityResults[key]!
+              .where((mapping) => mapping.$2 != r)
+              .toList();
+        },
+      )
+    );
+
+    _singleEntityResults.update(
+      key,
+      (mappings) => [...mappings, mapping],
+      ifAbsent: () => [mapping],
+    );
+
+    return mapping.$2;
+  }
+
+  T? getOnce(K key) {
     final res = _database.select(
       'SELECT value FROM `entity` WHERE `type` = ? AND `key` = ?',
       [_entityKey, key],
@@ -30,7 +64,23 @@ class IndexedEntityStore<T, K> {
     return _connector.deserialize(res.single['value']);
   }
 
-  List<T> getAll() {
+  QueryResult<List<T>> getAll() {
+    final QueryResultMapping<List<T>> mapping = (
+      () => getAllOnce(),
+      QueryResult._(
+        initialValue: getAllOnce(),
+        onDispose: (r) {
+          _entityResults.removeWhere((m) => m.$2 != r);
+        },
+      )
+    );
+
+    _entityResults.add(mapping);
+
+    return mapping.$2;
+  }
+
+  List<T> getAllOnce() {
     final res = _database.select(
       'SELECT * FROM `entity` WHERE `type` = ?',
       [_entityKey],
@@ -39,7 +89,23 @@ class IndexedEntityStore<T, K> {
     return res.map((e) => _connector.deserialize(e['value'])).toList();
   }
 
-  List<T> query(QueryBuilder q) {
+  QueryResult<List<T>> query(QueryBuilder q) {
+    final QueryResultMapping<List<T>> mapping = (
+      () => queryOnce(q),
+      QueryResult._(
+        initialValue: queryOnce(q),
+        onDispose: (r) {
+          _entityResults.removeWhere((m) => m.$2 != r);
+        },
+      )
+    );
+
+    _entityResults.add(mapping);
+
+    return mapping.$2;
+  }
+
+  List<T> queryOnce(QueryBuilder q) {
     final columns = _connector.getIndices(null).keys.toList();
 
     final indexColumns = IndexColumns(
@@ -75,6 +141,8 @@ class IndexedEntityStore<T, K> {
     _updateIndexInternal(e);
 
     _database.execute('COMMIT');
+
+    _handleUpdate({_connector.getPrimaryKey(e)});
   }
 
   void _updateIndexInternal(T e) {
@@ -91,13 +159,19 @@ class IndexedEntityStore<T, K> {
     }
   }
 
-  void delete(Set<K> keys) {
+  void delete(K key) {
+    deleteMany({key});
+  }
+
+  void deleteMany(Set<K> keys) {
     for (final key in keys) {
       _database.execute(
         'DELETE FROM `entity` WHERE `type` = ? AND `key` = ?',
         [_entityKey, key],
       );
     }
+
+    _handleUpdate(keys);
   }
 
   void _ensureIndexIsUpToDate() {
@@ -122,7 +196,7 @@ class IndexedEntityStore<T, K> {
 
       _database.execute('BEGIN');
 
-      final entities = getAll();
+      final entities = getAllOnce();
 
       for (final e in entities) {
         _updateIndexInternal(e);
@@ -131,6 +205,21 @@ class IndexedEntityStore<T, K> {
       _database.execute('COMMIT');
 
       debugPrint('Updated indices for ${entities.length} entities');
+    }
+  }
+
+  void _handleUpdate(Set<K> keys) {
+    for (final key in keys) {
+      final singleEntitySubscriptions = _singleEntityResults[key];
+      if (singleEntitySubscriptions != null) {
+        for (final mapping in singleEntitySubscriptions) {
+          mapping.$2._value.value = mapping.$1();
+        }
+      }
+    }
+
+    for (final mapping in _entityResults) {
+      mapping.$2._value.value = mapping.$1();
     }
   }
 }
