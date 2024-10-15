@@ -63,7 +63,9 @@ The above code omitted the defintion of `todoConnector`. This is the tiny piece 
 final todoConnector = IndexedEntityConnector<Todo, int /* key type */, String /* DB type */>(
   entityKey: 'todo',
   getPrimaryKey: (t) => t.id,
-  getIndices: (t) => { 'done': t?.done },
+  getIndices: (index) {
+    index((t) => t.done, as: 'done');
+  },
   serialize: (t) => jsonEncode(t.toJSON()),
   deserialize: (s) => _FooEntity.fromJSON(
     jsonDecode(s) as Map<String, dynamic>,

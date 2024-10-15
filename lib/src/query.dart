@@ -53,6 +53,13 @@ class _EqualQuery extends Query {
 
   @override
   (String, List) _entityKeysQuery() {
+    if (value == null) {
+      return (
+        'SELECT `entity` FROM `index` WHERE `type` = ? AND `field` = "$field" AND `value` IS NULL',
+        [entity],
+      );
+    }
+
     return (
       'SELECT `entity` FROM `index` WHERE `type` = ? AND `field` = "$field" AND `value` = ?',
       [entity, value],
