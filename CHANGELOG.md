@@ -1,3 +1,7 @@
+## 1.2.1
+
+* Fix DB init with the latest SQLite from `sqlite3_flutter_libs` on Android
+
 ## 1.2.0
 
 * Typed indices: All queries not check the parameter types, such that one does not accidentally pass a `String` to an `int` index field for example.

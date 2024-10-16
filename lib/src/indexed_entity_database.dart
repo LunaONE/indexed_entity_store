@@ -32,7 +32,8 @@ class IndexedEntityDabase {
       );
 
       _database.execute(
-        'INSERT INTO `metadata` ( `key`, `value` ) VALUES ( "version" , 1)',
+        'INSERT INTO `metadata` ( `key`, `value` ) VALUES ( ?, ? )',
+        ['version', 1],
       );
 
       debugPrint('New DB created');
