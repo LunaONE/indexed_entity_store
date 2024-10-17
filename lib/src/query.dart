@@ -55,8 +55,8 @@ class _EqualQuery extends Query {
   (String, List) _entityKeysQuery() {
     if (this.value == null) {
       return (
-        'SELECT `entity` FROM `index` WHERE `type` = ? AND `field` = "$field" AND `value` IS NULL',
-        [entity],
+        'SELECT `entity` FROM `index` WHERE `type` = ? AND `field` = ? AND `value` IS NULL',
+        [entity, field],
       );
     }
 
@@ -65,8 +65,8 @@ class _EqualQuery extends Query {
         : this.value;
 
     return (
-      'SELECT `entity` FROM `index` WHERE `type` = ? AND `field` = "$field" AND `value` = ?',
-      [entity, value],
+      'SELECT `entity` FROM `index` WHERE `type` = ? AND `field` = ? AND `value` = ?',
+      [entity, field, value],
     );
   }
 }
@@ -91,8 +91,8 @@ class _GreaterThanQuery extends Query {
         : this.value;
 
     return (
-      'SELECT `entity` FROM `index` WHERE `type` = ? AND `field` = "$field" AND `value` > ?',
-      [entity, value],
+      'SELECT `entity` FROM `index` WHERE `type` = ? AND `field` = ? AND `value` > ?',
+      [entity, field, value],
     );
   }
 }
@@ -117,8 +117,8 @@ class _LessThanQuery extends Query {
         : this.value;
 
     return (
-      'SELECT `entity` FROM `index` WHERE `type` = ? AND `field` = "$field" AND `value` < ?',
-      [entity, value],
+      'SELECT `entity` FROM `index` WHERE `type` = ? AND `field` = ? AND `value` < ?',
+      [entity, field, value],
     );
   }
 }
