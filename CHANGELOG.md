@@ -1,3 +1,7 @@
+## 1.2.2
+
+* Fix index query building on Android / latest `sqlite3_flutter_libs`
+
 ## 1.2.1
 
 * Fix DB init with the latest SQLite from `sqlite3_flutter_libs` on Android
