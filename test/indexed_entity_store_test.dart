@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -533,6 +534,230 @@ void main() {
       hasLength(1),
     );
   });
+
+  test('Limit', () async {
+    final path = '/tmp/index_entity_store_test_${FlutterTimeline.now}.sqlite3';
+
+    final db = IndexedEntityDabase.open(path);
+
+    final indexedEntityConnector = IndexedEntityConnector<int, String, String>(
+      entityKey: 'indexed_entity',
+      getPrimaryKey: (i) => "$i",
+      getIndices: (index) {
+        index((e) => e, as: 'value');
+      },
+      serialize: (i) => i.toString(),
+      deserialize: (s) => int.parse(s),
+    );
+
+    final store = db.entityStore(indexedEntityConnector);
+
+    expect(store.getAllOnce(), isEmpty);
+
+    for (var i = 0; i < 10; i++) {
+      store.insert(i);
+    }
+
+    expect(store.getAllOnce(), hasLength(10));
+    expect(
+      store.queryOnce((cols) => cols['value'].greaterThan(-1)),
+      hasLength(10),
+    );
+    expect(
+      store.queryOnce((cols) => cols['value'].greaterThan(-1), limit: 0),
+      isEmpty,
+    );
+    expect(
+      store.queryOnce((cols) => cols['value'].greaterThan(-1), limit: 1),
+      hasLength(1),
+    );
+    expect(
+      store.queryOnce((cols) => cols['value'].greaterThan(-1), limit: 5),
+      hasLength(5),
+    );
+    expect(
+      store.queryOnce((cols) => cols['value'].greaterThan(5), limit: 5),
+      equals({6, 7, 8, 9}),
+    );
+  });
+
+  test('Order by', () async {
+    final path = '/tmp/index_entity_store_test_${FlutterTimeline.now}.sqlite3';
+
+    final db = IndexedEntityDabase.open(path);
+
+    final random = Random();
+    final randomNumbers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]..shuffle();
+    final numbersWithPrimaryKey = {
+      for (final n in randomNumbers) n: random.nextInt(100000),
+    };
+    // debugPrint('numbersWithPrimaryKey: $numbersWithPrimaryKey');
+
+    final indexedEntityConnector = IndexedEntityConnector<int, String, String>(
+      entityKey: 'indexed_entity',
+      getPrimaryKey: (i) => numbersWithPrimaryKey[i]!.toString(),
+      getIndices: (index) {
+        index((e) => e, as: 'value');
+        index((e) => e.name, as: 'name');
+        index((e) => e.isEven, as: 'isEven');
+      },
+      serialize: (i) => i.toString(),
+      deserialize: (s) => int.parse(s),
+    );
+
+    final store = db.entityStore(indexedEntityConnector);
+
+    expect(store.getAllOnce(), isEmpty);
+
+    for (final n in randomNumbers) {
+      store.insert(n);
+    }
+
+    expect(store.getAllOnce(), hasLength(10));
+
+    expect(
+      store.queryOnce(
+        (cols) => cols['value'].greaterThan(-1),
+        orderBy: ('value', SortOrder.asc),
+      ),
+      [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+    );
+    expect(
+      store.queryOnce(
+        (cols) => cols['value'].greaterThan(-1),
+        orderBy: ('value', SortOrder.desc),
+      ),
+      [9, 8, 7, 6, 5, 4, 3, 2, 1, 0],
+    );
+
+    expect(
+      store.queryOnce(
+        (cols) => cols['value'].greaterThan(-1),
+        orderBy: ('value', SortOrder.asc),
+        limit: 3,
+      ),
+      [0, 1, 2],
+    );
+    expect(
+      store.queryOnce(
+        (cols) => cols['value'].greaterThan(-1),
+        orderBy: ('value', SortOrder.desc),
+        limit: 3,
+      ),
+      [9, 8, 7],
+    );
+
+    expect(
+      store.queryOnce(
+        (cols) => cols['value'].greaterThan(-1),
+        orderBy: ('name', SortOrder.asc),
+        limit: 3,
+      ),
+      [
+        8, // eight
+        5, // five
+        4, // four
+      ],
+    );
+    expect(
+      store.queryOnce(
+        (cols) => cols['value'].greaterThan(-1),
+        orderBy: ('name', SortOrder.desc),
+        limit: 3,
+      ),
+      equals([
+        0, // zero
+        2, // two
+        3, // three
+      ]),
+    );
+    expect(
+      store.queryOnce(
+        (cols) => cols['isEven'].equals(true),
+        orderBy: ('name', SortOrder.desc),
+        limit: 3,
+      ),
+      equals({
+        0, // zero
+        2, // two
+        6, // six
+      }),
+    );
+    expect(
+      store.queryOnce(
+        (cols) => cols['isEven'].equals(true),
+        orderBy: ('name', SortOrder.asc),
+        limit: 3,
+      ),
+      equals({
+        8, // eight
+        4, // four
+        6, // six
+      }),
+    );
+
+    expect(
+      store.getAllOnce(
+        orderBy: ('value', SortOrder.asc),
+      ),
+      [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+    );
+    expect(
+      store.getAllOnce(
+        orderBy: ('value', SortOrder.desc),
+      ),
+      [9, 8, 7, 6, 5, 4, 3, 2, 1, 0],
+    );
+  });
+
+  test('single', () {
+    final path = '/tmp/index_entity_store_test_${FlutterTimeline.now}.sqlite3';
+
+    final db = IndexedEntityDabase.open(path);
+
+    final indexedEntityConnector = IndexedEntityConnector<int, String, String>(
+      entityKey: 'indexed_entity',
+      getPrimaryKey: (i) => '$i',
+      getIndices: (index) {
+        index((e) => e, as: 'value');
+        index((e) => e.isEven, as: 'isEven');
+      },
+      serialize: (i) => i.toString(),
+      deserialize: (s) => int.parse(s),
+    );
+
+    final store = db.entityStore(indexedEntityConnector);
+
+    expect(store.getAllOnce(), isEmpty);
+
+    for (final n in [1, 2, 3]) {
+      store.insert(n);
+    }
+
+    expect(
+      store.singleOnce((cols) => cols['value'].equals(10)),
+      isNull,
+    );
+    expect(
+      store.singleOnce((cols) => cols['value'].equals(3)),
+      3,
+    );
+    expect(
+      store.singleOnce((cols) => cols['isEven'].equals(true)),
+      2,
+    );
+    expect(
+      // query with 2 matches
+      () => store.singleOnce((cols) => cols['isEven'].equals(false)),
+      throwsA(
+        isA<Exception>().having(
+          (e) => e.toString(),
+          'message',
+          contains('found at least 2 matching'),
+        ),
+      ),
+    );
+  });
 }
 
 class _FooEntity {
@@ -688,5 +913,35 @@ class _AllSupportedIndexTypes {
       dateTime: DateTime.parse(json['dateTime']),
       dateTimeOpt: DateTime.tryParse(json['dateTimeOpt'] ?? ''),
     );
+  }
+}
+
+extension on int {
+  String get name {
+    switch (this) {
+      case 0:
+        return 'zero';
+      case 1:
+        return 'one';
+      case 2:
+        return 'two';
+      case 3:
+        return 'three';
+      case 4:
+        return 'four';
+      case 5:
+        return 'five';
+      case 6:
+        return 'six';
+      case 7:
+        return 'seven';
+      case 8:
+        return 'eight';
+      case 9:
+        return 'nine';
+
+      default:
+        throw '$this not mapped to a name';
+    }
   }
 }

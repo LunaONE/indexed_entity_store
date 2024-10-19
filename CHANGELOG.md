@@ -1,3 +1,9 @@
+## 1.3.0
+
+* Add `single`/`singleOnce` for cases where one expects a single match, but does not have a primary key
+* Add `limit` and `orderBy` to `query`/`queryOnce`
+* Add `orderBy` to `getAll`/`getAllOnce`
+
 ## 1.2.2
 
 * Fix index query building on Android / latest `sqlite3_flutter_libs`
