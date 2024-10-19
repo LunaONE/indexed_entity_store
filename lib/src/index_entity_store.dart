@@ -9,6 +9,11 @@ part 'query_result.dart';
 
 typedef QueryResultMapping<T> = (T Function(), QueryResult<T>);
 
+enum SortOrder {
+  asc,
+  desc,
+}
+
 class IndexedEntityStore<T, K> {
   IndexedEntityStore(
     this._database,
@@ -44,6 +49,7 @@ class IndexedEntityStore<T, K> {
       _singleEntityResults.values.expand((mappings) => mappings).length +
       _entityResults.length;
 
+  /// Returns a subscription to a single entity by its primary key
   QueryResult<T?> get(K key) {
     final QueryResultMapping<T?> mapping = (
       () => getOnce(key),
@@ -66,6 +72,7 @@ class IndexedEntityStore<T, K> {
     return mapping.$2;
   }
 
+  /// Returns a single entity by its primary key
   T? getOnce(K key) {
     final res = _database.select(
       'SELECT value FROM `entity` WHERE `type` = ? AND `key` = ?',
@@ -79,11 +86,14 @@ class IndexedEntityStore<T, K> {
     return _connector.deserialize(res.single['value']);
   }
 
-  QueryResult<List<T>> getAll() {
+  /// Returns a subscription to all entities in this store
+  QueryResult<List<T>> getAll({
+    OrderByClause? orderBy,
+  }) {
     final QueryResultMapping<List<T>> mapping = (
-      () => getAllOnce(),
+      () => getAllOnce(orderBy: orderBy),
       QueryResult._(
-        initialValue: getAllOnce(),
+        initialValue: getAllOnce(orderBy: orderBy),
         onDispose: (r) {
           _entityResults.removeWhere((m) => m.$2 != r);
         },
@@ -95,20 +105,38 @@ class IndexedEntityStore<T, K> {
     return mapping.$2;
   }
 
-  List<T> getAllOnce() {
+  /// Returns a list of all entities in this store
+  List<T> getAllOnce({
+    OrderByClause? orderBy,
+  }) {
     final res = _database.select(
-      'SELECT * FROM `entity` WHERE `type` = ?',
-      [_entityKey],
+      [
+        'SELECT `entity`.`value` FROM `entity`',
+        if (orderBy != null)
+          ' JOIN `index` ON `index`.`entity` = `entity`.`key` ',
+        ' WHERE `entity`.`type` = ? ',
+        if (orderBy != null)
+          ' AND `index`.`field` = ? ORDER BY `index`.`value` ${orderBy.$2 == SortOrder.asc ? 'ASC' : 'DESC'}',
+      ].join(),
+      [
+        _entityKey,
+        if (orderBy != null) orderBy.$1,
+      ],
     );
 
     return res.map((e) => _connector.deserialize(e['value'])).toList();
   }
 
-  QueryResult<List<T>> query(QueryBuilder q) {
-    final QueryResultMapping<List<T>> mapping = (
-      () => queryOnce(q),
+  /// Returns the single entity (or null) for the given query
+  ///
+  /// Throws an exception if the query returns 2 or more values.
+  /// If the caller expects more than 1 value but is only interested in one,
+  /// they can use [query] with a limit instead.
+  QueryResult<T?> single(QueryBuilder q) {
+    final QueryResultMapping<T?> mapping = (
+      () => singleOnce(q),
       QueryResult._(
-        initialValue: queryOnce(q),
+        initialValue: singleOnce(q),
         onDispose: (r) {
           _entityResults.removeWhere((m) => m.$2 != r);
         },
@@ -120,12 +148,66 @@ class IndexedEntityStore<T, K> {
     return mapping.$2;
   }
 
-  List<T> queryOnce(QueryBuilder q) {
+  /// Returns the single entity (or null) for the given query
+  ///
+  /// Throws an exception if the query returns 2 or more values.
+  /// If the caller expects more than 1 value but is only interested in one,
+  /// they can use [query] with a limit instead.
+  T? singleOnce(QueryBuilder q) {
+    final result = queryOnce(q, limit: 2);
+
+    if (result.length > 1) {
+      throw Exception(
+          'singleOnce expected to find one element, but found at least 2 matching the query $q');
+    }
+
+    return result.singleOrNull;
+  }
+
+  /// Returns a subscription to entities matching the given query
+  QueryResult<List<T>> query(
+    QueryBuilder q, {
+    OrderByClause? orderBy,
+    int? limit,
+  }) {
+    final QueryResultMapping<List<T>> mapping = (
+      () => queryOnce(q, limit: limit, orderBy: orderBy),
+      QueryResult._(
+        initialValue: queryOnce(q, limit: limit, orderBy: orderBy),
+        onDispose: (r) {
+          _entityResults.removeWhere((m) => m.$2 != r);
+        },
+      )
+    );
+
+    _entityResults.add(mapping);
+
+    return mapping.$2;
+  }
+
+  /// Returns a list of entities matching the given query
+  List<T> queryOnce(
+    QueryBuilder q, {
+    OrderByClause? orderBy,
+    int? limit,
+  }) {
     final (w, s) = q(_indexColumns)._entityKeysQuery();
 
-    final query =
-        'SELECT value FROM `entity` WHERE `type` = ? AND `key` IN ( $w )';
-    final values = [_entityKey, ...s];
+    final query = [
+      'SELECT `entity`.`value` FROM `entity` ',
+      if (orderBy != null)
+        ' JOIN `index` ON `index`.`entity` = `entity`.`key` ',
+      ' WHERE `entity`.`type` = ? AND `entity`.`key` IN ( $w ) ',
+      if (orderBy != null)
+        'AND `index`.`field` = ? ORDER BY `index`.`value` ${orderBy.$2 == SortOrder.asc ? 'ASC' : 'DESC'}',
+      if (limit != null) ' LIMIT ?'
+    ].join();
+    final values = [
+      _entityKey,
+      ...s,
+      if (orderBy != null) orderBy.$1,
+      if (limit != null) limit,
+    ];
 
     final res = _database.select(query, values);
 
@@ -253,3 +335,5 @@ class IndexCollector<T> {
     );
   }
 }
+
+typedef OrderByClause = (String column, SortOrder direction);
