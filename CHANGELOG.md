@@ -1,3 +1,9 @@
+## 1.4.0
+
+* Enhance subscriptions to not emit updates when the underlying database value has not changed
+  * E.g. when an object is updated with the exact same storage values or a query ends up with the same result list no updates are emitted
+* Fix unsubscribe for queries
+
 ## 1.3.0
 
 * Add `single`/`singleOnce` for cases where one expects a single match, but does not have a primary key
