@@ -7,7 +7,7 @@ part 'index_columns.dart';
 part 'query.dart';
 part 'query_result.dart';
 
-typedef QueryResultMapping<T> = (T Function(), QueryResult<T>);
+typedef QueryResultMapping<T> = (MappedDBResult<T> Function(), QueryResult<T>);
 
 enum SortOrder {
   asc,
@@ -45,16 +45,17 @@ class IndexedEntityStore<T, K> {
   final List<QueryResultMapping> _entityResults = [];
 
   @visibleForTesting
-  int get subscriptionCount =>
-      _singleEntityResults.values.expand((mappings) => mappings).length +
-      _entityResults.length;
+  int get subscriptionCount {
+    return _singleEntityResults.values.expand((mappings) => mappings).length +
+        _entityResults.length;
+  }
 
   /// Returns a subscription to a single entity by its primary key
   QueryResult<T?> get(K key) {
     final QueryResultMapping<T?> mapping = (
-      () => getOnce(key),
+      () => _getOnce(key),
       QueryResult._(
-        initialValue: getOnce(key),
+        initialValue: _getOnce(key),
         onDispose: (r) {
           _singleEntityResults[key] = _singleEntityResults[key]!
               .where((mapping) => mapping.$2 != r)
@@ -74,16 +75,22 @@ class IndexedEntityStore<T, K> {
 
   /// Returns a single entity by its primary key
   T? getOnce(K key) {
+    return _getOnce(key).result;
+  }
+
+  MappedDBResult<T?> _getOnce(K key) {
     final res = _database.select(
       'SELECT value FROM `entity` WHERE `type` = ? AND `key` = ?',
       [_entityKey, key],
     );
 
     if (res.isEmpty) {
-      return null;
+      return (dbValues: [null], result: null);
     }
 
-    return _connector.deserialize(res.single['value']);
+    final dbValue = res.single['value'];
+
+    return (dbValues: [dbValue], result: _connector.deserialize(dbValue));
   }
 
   /// Returns a subscription to all entities in this store
@@ -91,11 +98,11 @@ class IndexedEntityStore<T, K> {
     OrderByClause? orderBy,
   }) {
     final QueryResultMapping<List<T>> mapping = (
-      () => getAllOnce(orderBy: orderBy),
+      () => _getAllOnce(orderBy: orderBy),
       QueryResult._(
-        initialValue: getAllOnce(orderBy: orderBy),
+        initialValue: _getAllOnce(orderBy: orderBy),
         onDispose: (r) {
-          _entityResults.removeWhere((m) => m.$2 != r);
+          _entityResults.removeWhere((m) => m.$2 == r);
         },
       )
     );
@@ -107,6 +114,12 @@ class IndexedEntityStore<T, K> {
 
   /// Returns a list of all entities in this store
   List<T> getAllOnce({
+    OrderByClause? orderBy,
+  }) {
+    return _getAllOnce(orderBy: orderBy).result;
+  }
+
+  MappedDBResult<List<T>> _getAllOnce({
     OrderByClause? orderBy,
   }) {
     final res = _database.select(
@@ -124,7 +137,12 @@ class IndexedEntityStore<T, K> {
       ],
     );
 
-    return res.map((e) => _connector.deserialize(e['value'])).toList();
+    final values = res.map((e) => e['value']).toList();
+
+    return (
+      dbValues: values,
+      result: values.map((v) => _connector.deserialize(v)).toList()
+    );
   }
 
   /// Returns the single entity (or null) for the given query
@@ -134,11 +152,11 @@ class IndexedEntityStore<T, K> {
   /// they can use [query] with a limit instead.
   QueryResult<T?> single(QueryBuilder q) {
     final QueryResultMapping<T?> mapping = (
-      () => singleOnce(q),
+      () => _singleOnce(q),
       QueryResult._(
-        initialValue: singleOnce(q),
+        initialValue: _singleOnce(q),
         onDispose: (r) {
-          _entityResults.removeWhere((m) => m.$2 != r);
+          _entityResults.removeWhere((m) => m.$2 == r);
         },
       )
     );
@@ -154,14 +172,19 @@ class IndexedEntityStore<T, K> {
   /// If the caller expects more than 1 value but is only interested in one,
   /// they can use [query] with a limit instead.
   T? singleOnce(QueryBuilder q) {
-    final result = queryOnce(q, limit: 2);
+    return _singleOnce(q).result;
+  }
 
-    if (result.length > 1) {
+  MappedDBResult<T?> _singleOnce(QueryBuilder q) {
+    final result = _queryOnce(q, limit: 2);
+
+    if (result.result.length > 1) {
       throw Exception(
-          'singleOnce expected to find one element, but found at least 2 matching the query $q');
+        'singleOnce expected to find one element, but found at least 2 matching the query $q',
+      );
     }
 
-    return result.singleOrNull;
+    return (dbValues: result.dbValues, result: result.result.firstOrNull);
   }
 
   /// Returns a subscription to entities matching the given query
@@ -171,11 +194,11 @@ class IndexedEntityStore<T, K> {
     int? limit,
   }) {
     final QueryResultMapping<List<T>> mapping = (
-      () => queryOnce(q, limit: limit, orderBy: orderBy),
+      () => _queryOnce(q, limit: limit, orderBy: orderBy),
       QueryResult._(
-        initialValue: queryOnce(q, limit: limit, orderBy: orderBy),
+        initialValue: _queryOnce(q, limit: limit, orderBy: orderBy),
         onDispose: (r) {
-          _entityResults.removeWhere((m) => m.$2 != r);
+          _entityResults.removeWhere((m) => m.$2 == r);
         },
       )
     );
@@ -187,6 +210,14 @@ class IndexedEntityStore<T, K> {
 
   /// Returns a list of entities matching the given query
   List<T> queryOnce(
+    QueryBuilder q, {
+    OrderByClause? orderBy,
+    int? limit,
+  }) {
+    return _queryOnce(q, orderBy: orderBy, limit: limit).result;
+  }
+
+  MappedDBResult<List<T>> _queryOnce(
     QueryBuilder q, {
     OrderByClause? orderBy,
     int? limit,
@@ -211,7 +242,12 @@ class IndexedEntityStore<T, K> {
 
     final res = _database.select(query, values);
 
-    return res.map((e) => _connector.deserialize(e['value'])).toList();
+    final dbValues = res.map((e) => e['value']).toList();
+
+    return (
+      dbValues: dbValues,
+      result: dbValues.map((v) => _connector.deserialize(v)).toList(),
+    );
   }
 
   void insert(T e) {
@@ -255,6 +291,14 @@ class IndexedEntityStore<T, K> {
 
   void deleteEntity(T entity) {
     delete(_connector.getPrimaryKey(entity));
+  }
+
+  void deleteEntities(Iterable<T> entities) {
+    deleteMany(
+      {
+        for (final e in entities) _connector.getPrimaryKey(e),
+      },
+    );
   }
 
   void deleteMany(Set<K> keys) {
@@ -307,13 +351,30 @@ class IndexedEntityStore<T, K> {
       final singleEntitySubscriptions = _singleEntityResults[key];
       if (singleEntitySubscriptions != null) {
         for (final mapping in singleEntitySubscriptions) {
-          mapping.$2._value.value = mapping.$1();
+          final newValue = mapping.$1();
+
+          if (newValue.dbValues.length ==
+                  mapping.$2._value.value.dbValues.length &&
+              newValue.dbValues.indexed.every(
+                  (e) => mapping.$2._value.value.dbValues[e.$1] == e.$2)) {
+            continue; // values already match
+          }
+
+          mapping.$2._value.value = newValue;
         }
       }
     }
 
     for (final mapping in _entityResults) {
-      mapping.$2._value.value = mapping.$1();
+      final newValue = mapping.$1();
+
+      if (newValue.dbValues.length == mapping.$2._value.value.dbValues.length &&
+          newValue.dbValues.indexed
+              .every((e) => mapping.$2._value.value.dbValues[e.$1] == e.$2)) {
+        continue; // values already match
+      }
+
+      mapping.$2._value.value = newValue;
     }
   }
 }

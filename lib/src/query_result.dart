@@ -1,13 +1,15 @@
 part of 'index_entity_store.dart';
 
+typedef MappedDBResult<T> = ({List<dynamic> dbValues, T result});
+
 class QueryResult<T> implements ValueListenable<T> {
   QueryResult._({
-    required T initialValue,
+    required MappedDBResult<T> initialValue,
     void Function(QueryResult<T> self)? onDispose,
   })  : _value = ValueNotifier(initialValue),
         _onDispose = onDispose;
 
-  final ValueNotifier<T> _value;
+  final ValueNotifier<MappedDBResult<T>> _value;
 
   final void Function(QueryResult<T> self)? _onDispose;
 
@@ -22,7 +24,7 @@ class QueryResult<T> implements ValueListenable<T> {
   }
 
   @override
-  T get value => _value.value;
+  T get value => _value.value.result;
 
   @mustCallSuper
   void dispose() {

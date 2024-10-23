@@ -217,16 +217,201 @@ void main() {
       fooStore.delete(9999);
 
       // Dispose all
+      expect(fooStore.subscriptionCount, 5);
       allFoos.dispose();
+      expect(fooStore.subscriptionCount, 4);
       fooById1.dispose();
+      expect(fooStore.subscriptionCount, 3);
       fooByQueryValueA.dispose();
+      expect(fooStore.subscriptionCount, 2);
       fooById99.dispose();
+      expect(fooStore.subscriptionCount, 1);
       fooByQueryValueNotExists.dispose();
+      expect(fooStore.subscriptionCount, 0);
 
       // No more subscriptions, so this has no effect
       fooStore.deleteEntity(entity2);
+    },
+  );
 
-      expect(fooStore.subscriptionCount, 0);
+  test(
+    'Reactive queries, check against duplicate updates',
+    () async {
+      final path =
+          '/tmp/index_entity_store_test_${FlutterTimeline.now}.sqlite3';
+
+      final db = IndexedEntityDabase.open(path);
+
+      final valueWrappingConnector =
+          IndexedEntityConnector<_ValueWrapper, int, String>(
+        entityKey: 'value_wrapper',
+        getPrimaryKey: (f) => f.key,
+        getIndices: (index) {
+          index((e) => e.value.length, as: 'length');
+        },
+        serialize: (f) => jsonEncode(f.toJSON()),
+        deserialize: (s) => _ValueWrapper.fromJSON(
+          jsonDecode(s) as Map<String, dynamic>,
+        ),
+      );
+
+      final valueStore = db.entityStore(valueWrappingConnector);
+
+      final valueWithId1Subscription = valueStore.get(1);
+      final valuesWithId1 = [valueWithId1Subscription.value];
+      valueWithId1Subscription.addListener(() {
+        // Add new values as they are exposed
+        valuesWithId1.add(valueWithId1Subscription.value);
+      });
+
+      final shortValuesSubscription = valueStore.query(
+        (cols) => cols['length'].lessThan(5),
+      );
+      final shortValues = [shortValuesSubscription.value];
+      shortValuesSubscription.addListener(() {
+        // Add new values as they are exposed
+        shortValues.add(shortValuesSubscription.value);
+      });
+
+      expect(
+        valuesWithId1,
+        [null],
+      );
+      expect(
+        shortValues,
+        [[]],
+      );
+
+      /// Add first entry
+      {
+        valueStore.insert(_ValueWrapper(1, 'one'));
+
+        // both subscriptions got updated
+        expect(
+          valuesWithId1,
+          [
+            null,
+            isA<_ValueWrapper>().having((w) => w.value, 'value', 'one'),
+          ],
+        );
+        expect(
+          shortValues,
+          [
+            [],
+            [isA<_ValueWrapper>().having((w) => w.value, 'value', 'one')]
+          ],
+        );
+      }
+
+      /// Add second entry, matching only the query
+      {
+        valueStore.insert(_ValueWrapper(2, 'two'));
+
+        // both subscriptions got updated
+        expect(
+          valuesWithId1,
+          [
+            null,
+            isA<_ValueWrapper>().having((w) => w.value, 'value', 'one'),
+          ],
+        );
+        expect(
+          shortValues,
+          [
+            [],
+            [isA<_ValueWrapper>().having((w) => w.value, 'value', 'one')],
+            [
+              isA<_ValueWrapper>().having((w) => w.value, 'value', 'one'),
+              isA<_ValueWrapper>().having((w) => w.value, 'value', 'two')
+            ],
+          ],
+        );
+      }
+
+      /// Re-insert first entry again, which should not cause an update, as the value has not changed
+      {
+        valueStore.insert(_ValueWrapper(1, 'one'));
+
+        // both subscriptions got updated
+        expect(
+          valuesWithId1,
+          [
+            null,
+            isA<_ValueWrapper>().having((w) => w.value, 'value', 'one'),
+          ],
+        );
+        expect(
+          shortValues,
+          [
+            [],
+            [isA<_ValueWrapper>().having((w) => w.value, 'value', 'one')],
+            [
+              isA<_ValueWrapper>().having((w) => w.value, 'value', 'one'),
+              isA<_ValueWrapper>().having((w) => w.value, 'value', 'two')
+            ],
+          ],
+        );
+      }
+
+      /// Insert another entry which does not match any query, and thus should not cause an update
+      {
+        valueStore.insert(_ValueWrapper(3, 'three'));
+
+        // both subscriptions got updated
+        expect(
+          valuesWithId1,
+          [
+            null,
+            isA<_ValueWrapper>().having((w) => w.value, 'value', 'one'),
+          ],
+        );
+        expect(
+          shortValues,
+          [
+            [],
+            [isA<_ValueWrapper>().having((w) => w.value, 'value', 'one')],
+            [
+              isA<_ValueWrapper>().having((w) => w.value, 'value', 'one'),
+              isA<_ValueWrapper>().having((w) => w.value, 'value', 'two')
+            ],
+          ],
+        );
+      }
+
+      /// Insert and update to entity 1, which should cause both to update
+      {
+        valueStore.insert(_ValueWrapper(1, 'eins'));
+
+        // both subscriptions got updated
+        expect(
+          valuesWithId1,
+          [
+            null,
+            isA<_ValueWrapper>().having((w) => w.value, 'value', 'one'),
+            isA<_ValueWrapper>().having((w) => w.value, 'value', 'eins'),
+          ],
+        );
+        expect(
+          shortValues,
+          [
+            [],
+            [isA<_ValueWrapper>().having((w) => w.value, 'value', 'one')],
+            [
+              isA<_ValueWrapper>().having((w) => w.value, 'value', 'one'),
+              isA<_ValueWrapper>().having((w) => w.value, 'value', 'two')
+            ],
+            [
+              isA<_ValueWrapper>().having((w) => w.value, 'value', 'eins'),
+              isA<_ValueWrapper>().having((w) => w.value, 'value', 'two')
+            ],
+          ],
+        );
+      }
+
+      valueWithId1Subscription.dispose();
+      shortValuesSubscription.dispose();
+
+      expect(valueStore.subscriptionCount, 0);
     },
   );
 
@@ -943,5 +1128,32 @@ extension on int {
       default:
         throw '$this not mapped to a name';
     }
+  }
+}
+
+/// A value wrapper class which only has object identity, and no value-based `==` implementation.
+///
+/// This way we can test that change updates are already prevented on the store-layer and do not depend on the `ValueNotifier` preventing updates (due to the current and new value being equal).
+class _ValueWrapper {
+  _ValueWrapper(
+    this.key,
+    this.value,
+  );
+
+  final int key;
+  final String value;
+
+  Map<String, dynamic> toJSON() {
+    return {
+      'key': key,
+      'value': value,
+    };
+  }
+
+  static _ValueWrapper fromJSON(Map<String, dynamic> json) {
+    return _ValueWrapper(
+      json['key'],
+      json['value'],
+    );
   }
 }
