@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test package
+
+    runs-on: macos-14
+
+    steps:
+      - uses: actions/checkout@v1
+
+      - uses: subosito/flutter-action@4389e6cbc6cb8a4b18c628ff96ff90be0e926aa8 # v1.5.3
+        with:
+          flutter-version: "3.24.3"
+
+      - name: Install dependencies
+        run: flutter packages get --enforce-lockfile
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Format
+        run: dart format --set-exit-if-changed .
+
+      - name: Run tests
+        env:
+          IS_CI: "true"
+        run: flutter test # --coverage
+
+      - name: Upload Flutter golden failures
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-goldens
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            **/failures/*.png
