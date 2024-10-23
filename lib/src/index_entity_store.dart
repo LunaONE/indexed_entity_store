@@ -20,11 +20,11 @@ class IndexedEntityStore<T, K> {
     this._connector,
   ) {
     {
-      final collector = IndexCollector<T>(_connector.entityKey);
+      final collector = IndexCollector<T>._(_connector.entityKey);
 
       _connector.getIndices(collector);
 
-      _indexColumns = IndexColumns({
+      _indexColumns = IndexColumns._({
         for (final col in collector._indices) col._field: col,
       });
     }
@@ -250,6 +250,10 @@ class IndexedEntityStore<T, K> {
     );
   }
 
+  /// Insert or updates the given entity in the database.
+  ///
+  /// In case an entity with the same primary already exists in the database, it will be updated.
+  // TODO(tp): We might want to rename this to `upsert` going forward to make it clear that this will overwrite and not error when the entry already exits (alternatively maybe `persist`, `write`, or `set`).
   void insert(T e) {
     _database.execute('BEGIN');
     assert(_database.autocommit == false);
@@ -285,14 +289,17 @@ class IndexedEntityStore<T, K> {
     }
   }
 
+  /// Deletes a single entity by its primary key
   void delete(K key) {
     deleteMany({key});
   }
 
+  /// Deletes a single entity
   void deleteEntity(T entity) {
     delete(_connector.getPrimaryKey(entity));
   }
 
+  /// Deletes many entities
   void deleteEntities(Iterable<T> entities) {
     deleteMany(
       {
@@ -301,6 +308,7 @@ class IndexedEntityStore<T, K> {
     );
   }
 
+  /// Deletes many entities by their primary key
   void deleteMany(Set<K> keys) {
     for (final key in keys) {
       _database.execute(
@@ -379,16 +387,19 @@ class IndexedEntityStore<T, K> {
   }
 }
 
+// NOTE(tp): This is implemented as a `class` with `call` such that we can
+// correctly capture the index type `I` and forward that to `IndexColumn`
 class IndexCollector<T> {
-  IndexCollector(this._entityKey);
+  IndexCollector._(this._entityKey);
 
   final String _entityKey;
 
   final _indices = <IndexColumn<T, dynamic>>[];
 
+  /// Adds a new index defined by the mapping [index] and stores it in [as]
   void call<I>(I Function(T e) index, {required String as}) {
     _indices.add(
-      IndexColumn<T, I>(
+      IndexColumn<T, I>._(
         entity: _entityKey,
         field: as,
         getIndexValue: index,
@@ -397,4 +408,5 @@ class IndexCollector<T> {
   }
 }
 
+/// Specifies how the result should be sorted
 typedef OrderByClause = (String column, SortOrder direction);

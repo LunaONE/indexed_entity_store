@@ -1,7 +1,8 @@
 part of 'index_entity_store.dart';
 
+/// The collection of indexed columns for a given [IndexedEntityStore]
 class IndexColumns {
-  IndexColumns(
+  IndexColumns._(
     Map<String, IndexColumn> indexColumns,
   ) : _indexColumns = Map.unmodifiable(indexColumns);
 

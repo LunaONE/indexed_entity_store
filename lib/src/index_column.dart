@@ -1,7 +1,11 @@
 part of 'index_entity_store.dart';
 
+/// An indexed column of an [IndexedEntityStore]
+///
+/// This provides an interface to indexed fields, which are the only queries that can be executed on a store
+/// (so that we never end up in a full table scan to look for a result).
 class IndexColumn<T /* entity type */, I /* index type */ > {
-  IndexColumn({
+  IndexColumn._({
     required String entity,
     required String field,
     required I Function(T e) getIndexValue,
