@@ -943,6 +943,37 @@ void main() {
       ),
     );
   });
+
+  test('Delete all', () async {
+    final path = '/tmp/index_entity_store_test_${FlutterTimeline.now}.sqlite3';
+
+    final db = IndexedEntityDabase.open(path);
+
+    final fooStore = db.entityStore(fooConnector);
+
+    expect(fooStore.getAllOnce(), isEmpty);
+
+    fooStore.insert(
+      _FooEntity(id: 1, valueA: 'a', valueB: 1, valueC: true),
+    );
+    fooStore.insert(
+      _FooEntity(id: 2, valueA: 'b', valueB: 2, valueC: true),
+    );
+
+    expect(fooStore.getAllOnce(), hasLength(2));
+
+    final singleSubscription = fooStore.get(1);
+    final listSubscription = fooStore.query((cols) => cols['b'].lessThan(5));
+    expect(singleSubscription.value, isA<_FooEntity>());
+    expect(listSubscription.value, hasLength(2));
+
+    // Delete all rows
+    fooStore.deleteAll();
+
+    expect(singleSubscription.value, isNull);
+    expect(listSubscription.value, isEmpty);
+    expect(fooStore.getAllOnce(), isEmpty);
+  });
 }
 
 class _FooEntity {
