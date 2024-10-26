@@ -289,6 +289,20 @@ class IndexedEntityStore<T, K> {
     }
   }
 
+  /// Removes all entries from the store
+  void deleteAll() {
+    final result = _database.select(
+      'DELETE FROM `entity` WHERE `type` = ? RETURNING `key`',
+      [_entityKey],
+    );
+
+    _handleUpdate(
+      {
+        for (final row in result) row['key']!,
+      },
+    );
+  }
+
   /// Deletes a single entity by its primary key
   void delete(K key) {
     deleteMany({key});

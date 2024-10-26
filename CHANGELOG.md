@@ -1,3 +1,7 @@
+## 1.4.1
+
+* Add `deleteAll` method
+
 ## 1.4.0
 
 * Enhance subscriptions to not emit updates when the underlying database value has not changed
