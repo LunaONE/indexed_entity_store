@@ -1,5 +1,9 @@
 ### Example
 
+See [the detailed app](https://github.com/LunaONE/indexed_entity_store/tree/main/example) for a full-blown example showcasing various approach of how to build an app on top of this package. Or look below for a simple introduction.
+
+#### Simple example
+
 Let's see how this would look for a simple TODO list application.
 
 ```dart
@@ -60,7 +64,7 @@ final todoConnector = IndexedEntityConnector<Todo, int /* key type */, String /*
     index((t) => t.done, as: 'done');
   },
   serialize: (t) => jsonEncode(t.toJSON()),
-  deserialize: (s) => _FooEntity.fromJSON(
+  deserialize: (s) => Todo.fromJSON(
     jsonDecode(s) as Map<String, dynamic>,
   ),
 );
