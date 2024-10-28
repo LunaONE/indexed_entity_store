@@ -1,3 +1,8 @@
+## 1.4.2
+
+* Add full example app
+* Implement `DisposableValueListenable` for `QueryResult`
+
 ## 1.4.1
 
 * Add `deleteAll` method

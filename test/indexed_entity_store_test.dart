@@ -165,9 +165,12 @@ void main() {
 
       final allFoos = fooStore.getAll();
       expect(allFoos.value, isEmpty);
+      expect(fooStore.subscriptionCount, 1);
 
-      final fooById1 = fooStore.get(1);
+      const int singleId = -2263796707128;
+      final fooById1 = fooStore.get(singleId);
       expect(fooById1.value, isNull);
+      expect(fooStore.subscriptionCount, 2);
 
       final fooByQueryValueA = fooStore.query((cols) => cols['a'].equals('a'));
       expect(fooByQueryValueA.value, isEmpty);
@@ -181,7 +184,7 @@ void main() {
 
       // insert new entity matching the open queries
       fooStore.insert(
-        _FooEntity(id: 1, valueA: 'a', valueB: 2, valueC: true),
+        _FooEntity(id: singleId, valueA: 'a', valueB: 2, valueC: true),
       );
 
       expect(allFoos.value, hasLength(1));
@@ -206,7 +209,7 @@ void main() {
       expect(fooByQueryValueNotExists.value, isEmpty);
 
       // delete ID 1
-      fooStore.delete(1);
+      fooStore.delete(singleId);
       expect(allFoos.value, hasLength(1));
       expect(fooById1.value, isNull);
       expect(fooByQueryValueA.value, isEmpty);
