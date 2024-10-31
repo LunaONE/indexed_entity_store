@@ -1,3 +1,11 @@
+## 2.0.0
+
+* Update method names
+  * Most notably `insert` is now `write` to transmit the ambivalence between "insert" and "update"
+  * `get` is now `read` to be symmetric to write (but instead of entities it takes keys, of course)
+  * `query` now takes an optional `where` parameter, so instead of `getAll()` you can now just use `query()` to get the same result
+  * `delete` now bundles multiple ways to identify entities to delete, offering a simpler API surface for the overall store
+
 ## 1.4.7
 
 * Add `contains` functions for `String` index columns

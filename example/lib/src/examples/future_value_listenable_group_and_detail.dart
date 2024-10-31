@@ -158,13 +158,13 @@ class AsyncProductRepository {
   Future<ValueSource<ProductDetail>> getProductDetail(
     int productId,
   ) async {
-    final product = _detailStore.get(productId);
+    final product = _detailStore.read(productId);
 
     if (product.value == null) {
       try {
         final remoteEvent = await _productApi.getProductDetail(productId);
 
-        _detailStore.insert(remoteEvent);
+        _detailStore.write(remoteEvent);
       } catch (e) {
         product.dispose(); // failed to load the data, close view to database
 
@@ -180,7 +180,7 @@ class AsyncProductRepository {
         'Local product is outdated, fetching new one in the background',
       );
 
-      _productApi.getProductDetail(productId).then(_detailStore.insert);
+      _productApi.getProductDetail(productId).then(_detailStore.write);
     }
 
     // If we reached this, we now know that we have a value in the local database, and we don't expect it to ever be deleted in this case, and thus can "force unwrap" it.

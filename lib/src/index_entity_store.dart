@@ -52,7 +52,7 @@ class IndexedEntityStore<T, K> {
   }
 
   /// Returns a subscription to a single entity by its primary key
-  QueryResult<T?> get(K key) {
+  QueryResult<T?> read(K key) {
     final QueryResultMapping<T?> mapping = (
       () => _getOnce(key),
       QueryResult._(
@@ -75,7 +75,7 @@ class IndexedEntityStore<T, K> {
   }
 
   /// Returns a single entity by its primary key
-  T? getOnce(K key) {
+  T? readOnce(K key) {
     return _getOnce(key).result;
   }
 
@@ -94,68 +94,18 @@ class IndexedEntityStore<T, K> {
     return (dbValues: [dbValue], result: _connector.deserialize(dbValue));
   }
 
-  /// Returns a subscription to all entities in this store
-  QueryResult<List<T>> getAll({
-    OrderByClause? orderBy,
-  }) {
-    final QueryResultMapping<List<T>> mapping = (
-      () => _getAllOnce(orderBy: orderBy),
-      QueryResult._(
-        initialValue: _getAllOnce(orderBy: orderBy),
-        onDispose: (r) {
-          _entityResults.removeWhere((m) => m.$2 == r);
-        },
-      )
-    );
-
-    _entityResults.add(mapping);
-
-    return mapping.$2;
-  }
-
-  /// Returns a list of all entities in this store
-  List<T> getAllOnce({
-    OrderByClause? orderBy,
-  }) {
-    return _getAllOnce(orderBy: orderBy).result;
-  }
-
-  MappedDBResult<List<T>> _getAllOnce({
-    OrderByClause? orderBy,
-  }) {
-    final res = _database.select(
-      [
-        'SELECT `entity`.`value` FROM `entity`',
-        if (orderBy != null)
-          ' JOIN `index` ON `index`.`entity` = `entity`.`key` ',
-        ' WHERE `entity`.`type` = ? ',
-        if (orderBy != null)
-          ' AND `index`.`field` = ? ORDER BY `index`.`value` ${orderBy.$2 == SortOrder.asc ? 'ASC' : 'DESC'}',
-      ].join(),
-      [
-        _entityKey,
-        if (orderBy != null) orderBy.$1,
-      ],
-    );
-
-    final values = res.map((e) => e['value']).toList();
-
-    return (
-      dbValues: values,
-      result: values.map((v) => _connector.deserialize(v)).toList()
-    );
-  }
-
   /// Returns the single entity (or null) for the given query
   ///
   /// Throws an exception if the query returns 2 or more values.
   /// If the caller expects more than 1 value but is only interested in one,
-  /// they can use [query] with a limit instead.
-  QueryResult<T?> single(QueryBuilder q) {
+  /// they can use [query] with a `limit: 1` instead.
+  QueryResult<T?> single({
+    required QueryBuilder where,
+  }) {
     final QueryResultMapping<T?> mapping = (
-      () => _singleOnce(q),
+      () => _singleOnce(where: where),
       QueryResult._(
-        initialValue: _singleOnce(q),
+        initialValue: _singleOnce(where: where),
         onDispose: (r) {
           _entityResults.removeWhere((m) => m.$2 == r);
         },
@@ -172,16 +122,20 @@ class IndexedEntityStore<T, K> {
   /// Throws an exception if the query returns 2 or more values.
   /// If the caller expects more than 1 value but is only interested in one,
   /// they can use [query] with a limit instead.
-  T? singleOnce(QueryBuilder q) {
-    return _singleOnce(q).result;
+  T? singleOnce({
+    required QueryBuilder where,
+  }) {
+    return _singleOnce(where: where).result;
   }
 
-  MappedDBResult<T?> _singleOnce(QueryBuilder q) {
-    final result = _queryOnce(q, limit: 2);
+  MappedDBResult<T?> _singleOnce({
+    required QueryBuilder where,
+  }) {
+    final result = _queryOnce(where: where, limit: 2);
 
     if (result.result.length > 1) {
       throw Exception(
-        'singleOnce expected to find one element, but found at least 2 matching the query $q',
+        'singleOnce expected to find one element, but found at least 2 matching the query $where',
       );
     }
 
@@ -189,15 +143,15 @@ class IndexedEntityStore<T, K> {
   }
 
   /// Returns a subscription to entities matching the given query
-  QueryResult<List<T>> query(
-    QueryBuilder q, {
+  QueryResult<List<T>> query({
+    QueryBuilder? where,
     OrderByClause? orderBy,
     int? limit,
   }) {
     final QueryResultMapping<List<T>> mapping = (
-      () => _queryOnce(q, limit: limit, orderBy: orderBy),
+      () => _queryOnce(where: where, limit: limit, orderBy: orderBy),
       QueryResult._(
-        initialValue: _queryOnce(q, limit: limit, orderBy: orderBy),
+        initialValue: _queryOnce(where: where, limit: limit, orderBy: orderBy),
         onDispose: (r) {
           _entityResults.removeWhere((m) => m.$2 == r);
         },
@@ -210,33 +164,34 @@ class IndexedEntityStore<T, K> {
   }
 
   /// Returns a list of entities matching the given query
-  List<T> queryOnce(
-    QueryBuilder q, {
+  List<T> queryOnce({
+    QueryBuilder? where,
     OrderByClause? orderBy,
     int? limit,
   }) {
-    return _queryOnce(q, orderBy: orderBy, limit: limit).result;
+    return _queryOnce(where: where, orderBy: orderBy, limit: limit).result;
   }
 
-  MappedDBResult<List<T>> _queryOnce(
-    QueryBuilder q, {
+  MappedDBResult<List<T>> _queryOnce({
+    QueryBuilder? where,
     OrderByClause? orderBy,
     int? limit,
   }) {
-    final (w, s) = q(_indexColumns)._entityKeysQuery();
+    final whereClause = where?.call(_indexColumns)._entityKeysQuery();
 
     final query = [
       'SELECT `entity`.`value` FROM `entity` ',
       if (orderBy != null)
         ' JOIN `index` ON `index`.`entity` = `entity`.`key` ',
-      ' WHERE `entity`.`type` = ? AND `entity`.`key` IN ( $w ) ',
+      ' WHERE `entity`.`type` = ? ',
+      if (whereClause != null) ' AND `entity`.`key` IN ( ${whereClause.$1} ) ',
       if (orderBy != null)
         'AND `index`.`field` = ? ORDER BY `index`.`value` ${orderBy.$2 == SortOrder.asc ? 'ASC' : 'DESC'}',
       if (limit != null) ' LIMIT ?'
     ].join();
     final values = [
       _entityKey,
-      ...s,
+      ...?whereClause?.$2,
       if (orderBy != null) orderBy.$1,
       if (limit != null) limit,
     ];
@@ -260,7 +215,7 @@ class IndexedEntityStore<T, K> {
   ///
   /// In case an entity with the same primary already exists in the database, it will be updated.
   // TODO(tp): We might want to rename this to `upsert` going forward to make it clear that this will overwrite and not error when the entry already exits (alternatively maybe `persist`, `write`, or `set`).
-  void insert(T e) {
+  void write(T e) {
     try {
       _database.execute('BEGIN');
       assert(_database.autocommit == false);
@@ -285,7 +240,7 @@ class IndexedEntityStore<T, K> {
   /// Insert or update many entities in a single batch
   ///
   /// Notification for changes will only fire after all changes have been written (meaning queries will get a single update after all writes are finished)
-  void insertMany(Iterable<T> entities) {
+  void writeMany(Iterable<T> entities) {
     final keys = <K>{};
 
     try {
@@ -330,8 +285,39 @@ class IndexedEntityStore<T, K> {
     }
   }
 
+  /// Delete the specified entries
+  void delete({
+    final T? entity,
+    final Iterable<T>? entities,
+    final K? key,
+    final Iterable<K>? keys,
+    // TODO(tp): QueryBuilder? where,
+    final bool? all,
+  }) {
+    assert(entity != null ||
+        entities != null ||
+        key != null ||
+        keys != null ||
+        all != null);
+    assert(
+      all == null ||
+          (entity == null && entities == null && key == null && keys == null),
+    );
+
+    if (all == true) {
+      _deleteAll();
+    } else {
+      _deleteManyByKey({
+        if (entity != null) _connector.getPrimaryKey(entity),
+        ...?entities?.map(_connector.getPrimaryKey),
+        if (key != null) key,
+        ...?keys,
+      });
+    }
+  }
+
   /// Removes all entries from the store
-  void deleteAll() {
+  void _deleteAll() {
     final result = _database.select(
       'DELETE FROM `entity` WHERE `type` = ? RETURNING `key`',
       [_entityKey],
@@ -344,34 +330,25 @@ class IndexedEntityStore<T, K> {
     );
   }
 
-  /// Deletes a single entity by its primary key
-  void delete(K key) {
-    deleteMany({key});
-  }
-
-  /// Deletes a single entity
-  void deleteEntity(T entity) {
-    delete(_connector.getPrimaryKey(entity));
-  }
-
-  /// Deletes many entities
-  void deleteEntities(Iterable<T> entities) {
-    deleteMany(
-      {
-        for (final e in entities) _connector.getPrimaryKey(e),
-      },
-    );
-  }
-
   /// Deletes many entities by their primary key
-  void deleteMany(Set<K> keys) {
-    for (final key in keys) {
-      _database.execute(
-        'DELETE FROM `entity` WHERE `type` = ? AND `key` = ?',
-        [_entityKey, key],
-      );
+  void _deleteManyByKey(Set<K> keys) {
+    try {
+      _database.execute('BEGIN');
 
-      _assertNoMoreIndexEntries(key);
+      for (final key in keys) {
+        _database.execute(
+          'DELETE FROM `entity` WHERE `type` = ? AND `key` = ?',
+          [_entityKey, key],
+        );
+
+        _assertNoMoreIndexEntries(key);
+      }
+
+      _database.execute('COMMIT');
+    } catch (e) {
+      _database.execute('ROLLBACK');
+
+      rethrow;
     }
 
     _handleUpdate(keys);
@@ -414,7 +391,7 @@ class IndexedEntityStore<T, K> {
           [_entityKey],
         );
 
-        final entities = getAllOnce();
+        final entities = queryOnce();
 
         for (final e in entities) {
           _updateIndexInternal(e);
