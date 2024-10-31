@@ -17,70 +17,93 @@ void main() {
 
     final fooStore = db.entityStore(fooConnector);
 
-    expect(fooStore.getAllOnce(), isEmpty);
+    expect(fooStore.queryOnce(), isEmpty);
 
-    fooStore.insert(
+    fooStore.write(
       _FooEntity(id: 99, valueA: 'a', valueB: 2, valueC: true),
     );
 
-    expect(fooStore.getOnce(99), isA<_FooEntity>());
-    expect(fooStore.getAllOnce(), hasLength(1));
+    expect(fooStore.readOnce(99), isA<_FooEntity>());
+    expect(fooStore.queryOnce(), hasLength(1));
 
-    expect(fooStore.queryOnce((cols) => cols['a'].equals('a')), hasLength(1));
+    expect(
+      fooStore.queryOnce(where: (cols) => cols['a'].equals('a')),
+      hasLength(1),
+    );
     // equals is case sensitive
-    expect(fooStore.queryOnce((cols) => cols['a'].equals('A')), isEmpty);
-    expect(fooStore.queryOnce((cols) => cols['a'].equals('b')), hasLength(0));
-
-    expect(fooStore.queryOnce((cols) => cols['b'].equals(2)), hasLength(1));
-    expect(fooStore.queryOnce((cols) => cols['b'].equals(4)), hasLength(0));
+    expect(
+      fooStore.queryOnce(where: (cols) => cols['a'].equals('A')),
+      isEmpty,
+    );
+    expect(
+      fooStore.queryOnce(where: (cols) => cols['a'].equals('b')),
+      hasLength(0),
+    );
 
     expect(
-      fooStore.queryOnce((cols) => cols['a'].equals('a') & cols['b'].equals(2)),
+        fooStore.queryOnce(where: (cols) => cols['b'].equals(2)), hasLength(1));
+    expect(
+        fooStore.queryOnce(where: (cols) => cols['b'].equals(4)), hasLength(0));
+
+    expect(
+      fooStore.queryOnce(
+          where: (cols) => cols['a'].equals('a') & cols['b'].equals(2)),
       hasLength(1),
     );
     expect(
-      fooStore.queryOnce((cols) => cols['a'].equals('b') & cols['b'].equals(2)),
+      fooStore.queryOnce(
+          where: (cols) => cols['a'].equals('b') & cols['b'].equals(2)),
       isEmpty,
     );
     expect(
-      fooStore.queryOnce((cols) => cols['a'].equals('a') & cols['b'].equals(3)),
+      fooStore.queryOnce(
+          where: (cols) => cols['a'].equals('a') & cols['b'].equals(3)),
       isEmpty,
     );
     expect(
-      fooStore.queryOnce((cols) => cols['a'].equals('b') & cols['b'].equals(3)),
-      isEmpty,
-    );
-
-    expect(
-      fooStore.queryOnce((cols) => cols['a'].equals('a') | cols['b'].equals(3)),
-      hasLength(1),
-    );
-    expect(
-      fooStore.queryOnce((cols) => cols['a'].equals('b') | cols['b'].equals(2)),
-      hasLength(1),
-    );
-    expect(
-      fooStore.queryOnce((cols) => cols['a'].equals('b') | cols['b'].equals(3)),
+      fooStore.queryOnce(
+          where: (cols) => cols['a'].equals('b') & cols['b'].equals(3)),
       isEmpty,
     );
 
     expect(
-      () => fooStore.queryOnce((cols) => cols['does_not_exist'].equals('b')),
+      fooStore.queryOnce(
+          where: (cols) => cols['a'].equals('a') | cols['b'].equals(3)),
+      hasLength(1),
+    );
+    expect(
+      fooStore.queryOnce(
+          where: (cols) => cols['a'].equals('b') | cols['b'].equals(2)),
+      hasLength(1),
+    );
+    expect(
+      fooStore.queryOnce(
+          where: (cols) => cols['a'].equals('b') | cols['b'].equals(3)),
+      isEmpty,
+    );
+
+    expect(
+      () => fooStore.queryOnce(
+          where: (cols) => cols['does_not_exist'].equals('b')),
       throwsException,
     );
 
     // add a second entity with the same values, but different key
-    fooStore.insert(
+    fooStore.write(
       _FooEntity(id: 101, valueA: 'a', valueB: 2, valueC: true),
     );
 
-    expect(fooStore.getAllOnce(), hasLength(2));
-    expect(fooStore.queryOnce((cols) => cols['a'].equals('a')), hasLength(2));
+    expect(fooStore.queryOnce(), hasLength(2));
+    expect(fooStore.queryOnce(where: (cols) => cols['a'].equals('a')),
+        hasLength(2));
 
     // delete initial
-    fooStore.deleteMany({99});
-    expect(fooStore.getAllOnce(), hasLength(1));
-    expect(fooStore.queryOnce((cols) => cols['a'].equals('a')), hasLength(1));
+    fooStore.delete(key: 99);
+    expect(fooStore.queryOnce(), hasLength(1));
+    expect(
+      fooStore.queryOnce(where: (cols) => cols['a'].equals('a')),
+      hasLength(1),
+    );
 
     db.dispose();
 
@@ -99,34 +122,34 @@ void main() {
 
         final fooStore = db.entityStore(fooConnector);
 
-        expect(fooStore.getAllOnce(), isEmpty);
+        expect(fooStore.queryOnce(), isEmpty);
 
-        fooStore.insert(
+        fooStore.write(
           _FooEntity(id: 99, valueA: 'a', valueB: 2, valueC: true),
         );
 
         expect(
-          fooStore.queryOnce((cols) => cols['a'].equals('a')),
+          fooStore.queryOnce(where: (cols) => cols['a'].equals('a')),
           hasLength(1),
         );
         expect(
-          fooStore.queryOnce((cols) => cols['a'].equals('b')),
+          fooStore.queryOnce(where: (cols) => cols['a'].equals('b')),
           hasLength(0),
         );
 
-        fooStore.insert(
+        fooStore.write(
           _FooEntity(id: 99, valueA: 'A', valueB: 2, valueC: true),
         );
         expect(
-          fooStore.queryOnce((cols) => cols['a'].equals('a')),
+          fooStore.queryOnce(where: (cols) => cols['a'].equals('a')),
           hasLength(0),
         );
         expect(
-          fooStore.queryOnce((cols) => cols['a'].equals('A')),
+          fooStore.queryOnce(where: (cols) => cols['a'].equals('A')),
           hasLength(1),
         );
         expect(
-          fooStore.queryOnce((cols) => cols['a'].equals('b')),
+          fooStore.queryOnce(where: (cols) => cols['a'].equals('b')),
           hasLength(0),
         );
 
@@ -139,18 +162,22 @@ void main() {
 
         final fooStore = db.entityStore(fooConnectorWithIndexOnBAndC);
 
-        expect(fooStore.getAllOnce(), hasLength(1));
+        expect(fooStore.queryOnce(), hasLength(1));
         // old index is not longer supported
         expect(
-          () => fooStore.queryOnce((cols) => cols['a'].equals('A')),
+          () => fooStore.queryOnce(where: (cols) => cols['a'].equals('A')),
           throwsException,
         );
         expect(
-          fooStore.queryOnce((cols) => cols['b'].equals(1002)),
+          fooStore.queryOnce(where: (cols) => cols['b'].equals(1002)),
           hasLength(1),
         );
         expect(
-          fooStore.queryOnce((cols) => cols['c'].equals(true)),
+          fooStore.queryOnce(where: (cols) => cols['b'].equals(1002)),
+          hasLength(1),
+        );
+        expect(
+          fooStore.queryOnce(where: (cols) => cols['c'].equals(true)),
           hasLength(1),
         );
       }
@@ -169,27 +196,29 @@ void main() {
 
       final fooStore = db.entityStore(fooConnector);
 
-      final allFoos = fooStore.getAll();
+      final allFoos = fooStore.query();
       expect(allFoos.value, isEmpty);
       expect(fooStore.subscriptionCount, 1);
 
       const int singleId = -2263796707128;
-      final fooById1 = fooStore.get(singleId);
+      final fooById1 = fooStore.read(singleId);
       expect(fooById1.value, isNull);
       expect(fooStore.subscriptionCount, 2);
 
-      final fooByQueryValueA = fooStore.query((cols) => cols['a'].equals('a'));
+      final fooByQueryValueA =
+          fooStore.query(where: (cols) => cols['a'].equals('a'));
       expect(fooByQueryValueA.value, isEmpty);
 
-      final fooById99 = fooStore.get(99);
+      final fooById99 = fooStore.read(99);
       expect(fooById99.value, isNull);
 
-      final fooByQueryValueNotExists =
-          fooStore.query((cols) => cols['a'].equals('does_not_exist'));
+      final fooByQueryValueNotExists = fooStore.query(
+        where: (cols) => cols['a'].equals('does_not_exist'),
+      );
       expect(fooByQueryValueNotExists.value, isEmpty);
 
       // insert new entity matching the open queries
-      fooStore.insert(
+      fooStore.write(
         _FooEntity(id: singleId, valueA: 'a', valueB: 2, valueC: true),
       );
 
@@ -206,7 +235,7 @@ void main() {
         valueB: 2,
         valueC: true,
       );
-      fooStore.insert(entity2);
+      fooStore.write(entity2);
 
       expect(allFoos.value, hasLength(2));
       expect(fooById1.value, isA<_FooEntity>());
@@ -215,7 +244,7 @@ void main() {
       expect(fooByQueryValueNotExists.value, isEmpty);
 
       // delete ID 1
-      fooStore.delete(singleId);
+      fooStore.delete(key: singleId);
       expect(allFoos.value, hasLength(1));
       expect(fooById1.value, isNull);
       expect(fooByQueryValueA.value, isEmpty);
@@ -223,7 +252,7 @@ void main() {
       expect(fooByQueryValueNotExists.value, isEmpty);
 
       /// Does not exist, does not make a difference
-      fooStore.delete(9999);
+      fooStore.delete(key: 9999);
 
       // Dispose all
       expect(fooStore.subscriptionCount, 5);
@@ -239,7 +268,7 @@ void main() {
       expect(fooStore.subscriptionCount, 0);
 
       // No more subscriptions, so this has no effect
-      fooStore.deleteEntity(entity2);
+      fooStore.delete(entity: entity2);
     },
   );
 
@@ -266,7 +295,7 @@ void main() {
 
       final valueStore = db.entityStore(valueWrappingConnector);
 
-      final valueWithId1Subscription = valueStore.get(1);
+      final valueWithId1Subscription = valueStore.read(1);
       final valuesWithId1 = [valueWithId1Subscription.value];
       valueWithId1Subscription.addListener(() {
         // Add new values as they are exposed
@@ -274,7 +303,7 @@ void main() {
       });
 
       final shortValuesSubscription = valueStore.query(
-        (cols) => cols['length'].lessThan(5),
+        where: (cols) => cols['length'].lessThan(5),
       );
       final shortValues = [shortValuesSubscription.value];
       shortValuesSubscription.addListener(() {
@@ -293,7 +322,7 @@ void main() {
 
       /// Add first entry
       {
-        valueStore.insert(_ValueWrapper(1, 'one'));
+        valueStore.write(_ValueWrapper(1, 'one'));
 
         // both subscriptions got updated
         expect(
@@ -314,7 +343,7 @@ void main() {
 
       /// Add second entry, matching only the query
       {
-        valueStore.insert(_ValueWrapper(2, 'two'));
+        valueStore.write(_ValueWrapper(2, 'two'));
 
         // both subscriptions got updated
         expect(
@@ -339,7 +368,7 @@ void main() {
 
       /// Re-insert first entry again, which should not cause an update, as the value has not changed
       {
-        valueStore.insert(_ValueWrapper(1, 'one'));
+        valueStore.write(_ValueWrapper(1, 'one'));
 
         // subscriptions did not emit a new value
         expect(
@@ -364,7 +393,7 @@ void main() {
 
       /// Insert another entry which does not match any query, and thus should not cause an update
       {
-        valueStore.insert(_ValueWrapper(3, 'three'));
+        valueStore.write(_ValueWrapper(3, 'three'));
 
         // subscriptions did not emit a new value
         expect(
@@ -389,7 +418,7 @@ void main() {
 
       /// Insert and update to entity 1, which should cause both to update
       {
-        valueStore.insert(_ValueWrapper(1, 'eins'));
+        valueStore.write(_ValueWrapper(1, 'eins'));
 
         // both subscriptions got updated
         expect(
@@ -458,12 +487,12 @@ void main() {
 
       final store = db.entityStore(indexedEntityConnector);
 
-      expect(store.getAllOnce(), isEmpty);
+      expect(store.queryOnce(), isEmpty);
 
-      store.insert(
+      store.write(
         _AllSupportedIndexTypes.defaultIfNull(string: 'default'),
       );
-      store.insert(
+      store.write(
         _AllSupportedIndexTypes.defaultIfNull(
           string: 'all_set',
           stringOpt: 'string_2',
@@ -480,97 +509,99 @@ void main() {
         ),
       );
 
-      expect(store.getAllOnce(), hasLength(2));
+      expect(store.queryOnce(), hasLength(2));
 
       // Valid queries with values
       expect(
-        store.queryOnce((cols) => cols['string'].equals('all_set')),
+        store.queryOnce(where: (cols) => cols['string'].equals('all_set')),
         hasLength(1),
       );
       expect(
-        store.queryOnce((cols) => cols['stringOpt'].equals('string_2')),
+        store.queryOnce(where: (cols) => cols['stringOpt'].equals('string_2')),
         hasLength(1),
       );
       expect(
-        store.queryOnce((cols) => cols['number'].equals(1)),
+        store.queryOnce(where: (cols) => cols['number'].equals(1)),
         hasLength(1),
       );
       expect(
-        store.queryOnce((cols) => cols['numberOpt'].equals(2)),
+        store.queryOnce(where: (cols) => cols['numberOpt'].equals(2)),
         hasLength(1),
       );
       expect(
-        store.queryOnce((cols) => cols['integer'].equals(3)),
+        store.queryOnce(where: (cols) => cols['integer'].equals(3)),
         hasLength(1),
       );
       expect(
-        store.queryOnce((cols) => cols['integerOpt'].equals(4)),
+        store.queryOnce(where: (cols) => cols['integerOpt'].equals(4)),
         hasLength(1),
       );
       expect(
-        store.queryOnce((cols) => cols['stringOpt'].equals('string_2')),
+        store.queryOnce(where: (cols) => cols['stringOpt'].equals('string_2')),
         hasLength(1),
       );
       expect(
-        store.queryOnce((cols) => cols['float'].equals(5.678)),
+        store.queryOnce(where: (cols) => cols['float'].equals(5.678)),
         hasLength(1),
       );
       expect(
-        store.queryOnce((cols) => cols['floatOpt'].equals(6.789)),
+        store.queryOnce(where: (cols) => cols['floatOpt'].equals(6.789)),
         hasLength(1),
       );
       expect(
-        store.queryOnce((cols) => cols['boolean'].equals(false)),
+        store.queryOnce(where: (cols) => cols['boolean'].equals(false)),
         hasLength(2), //  as this also finds the default one
       );
       expect(
-        store.queryOnce((cols) => cols['booleanOpt'].equals(true)),
-        hasLength(1),
-      );
-      expect(
-        store.queryOnce((cols) => cols['dateTime'].equals(DateTime.utc(2000))),
+        store.queryOnce(where: (cols) => cols['booleanOpt'].equals(true)),
         hasLength(1),
       );
       expect(
         store.queryOnce(
-          (cols) => cols['dateTimeOpt'].equals(DateTime.utc(2100)),
+          where: (cols) => cols['dateTime'].equals(DateTime.utc(2000)),
+        ),
+        hasLength(1),
+      );
+      expect(
+        store.queryOnce(
+          where: (cols) => cols['dateTimeOpt'].equals(DateTime.utc(2100)),
         ),
         hasLength(1),
       );
 
       // Valid queries with `null`
       expect(
-        store.queryOnce((cols) => cols['stringOpt'].equals(null)),
+        store.queryOnce(where: (cols) => cols['stringOpt'].equals(null)),
         hasLength(1),
       );
       expect(
-        store.queryOnce((cols) => cols['numberOpt'].equals(null)),
+        store.queryOnce(where: (cols) => cols['numberOpt'].equals(null)),
         hasLength(1),
       );
       expect(
-        store.queryOnce((cols) => cols['integerOpt'].equals(null)),
+        store.queryOnce(where: (cols) => cols['integerOpt'].equals(null)),
         hasLength(1),
       );
       expect(
-        store.queryOnce((cols) => cols['stringOpt'].equals(null)),
+        store.queryOnce(where: (cols) => cols['stringOpt'].equals(null)),
         hasLength(1),
       );
       expect(
-        store.queryOnce((cols) => cols['floatOpt'].equals(null)),
+        store.queryOnce(where: (cols) => cols['floatOpt'].equals(null)),
         hasLength(1),
       );
       expect(
-        store.queryOnce((cols) => cols['booleanOpt'].equals(null)),
+        store.queryOnce(where: (cols) => cols['booleanOpt'].equals(null)),
         hasLength(1),
       );
       expect(
-        store.queryOnce((cols) => cols['dateTimeOpt'].equals(null)),
+        store.queryOnce(where: (cols) => cols['dateTimeOpt'].equals(null)),
         hasLength(1),
       );
 
       // type mismatches
       expect(
-        () => store.queryOnce((cols) => cols['string'].equals(null)),
+        () => store.queryOnce(where: (cols) => cols['string'].equals(null)),
         throwsA(
           isA<Exception>().having(
             (e) => e.toString(),
@@ -582,7 +613,7 @@ void main() {
         ),
       );
       expect(
-        () => store.queryOnce((cols) => cols['boolean'].equals(1.0)),
+        () => store.queryOnce(where: (cols) => cols['boolean'].equals(1.0)),
         throwsA(
           isA<Exception>().having(
             (e) => e.toString(),
@@ -594,7 +625,7 @@ void main() {
         ),
       );
       expect(
-        () => store.queryOnce((cols) => cols['dateTime'].equals('')),
+        () => store.queryOnce(where: (cols) => cols['dateTime'].equals('')),
         throwsA(
           isA<Exception>().having(
             (e) => e.toString(),
@@ -631,11 +662,11 @@ void main() {
 
       final store = db.entityStore(indexedEntityConnector);
 
-      expect(store.getAllOnce(), isEmpty);
+      expect(store.queryOnce(), isEmpty);
 
       final e = _AllSupportedIndexTypes.defaultIfNull(string: 'default');
 
-      store.insert(e);
+      store.write(e);
 
       db.dispose();
 
@@ -648,9 +679,9 @@ void main() {
 
         final store = db.entityStore(indexedEntityConnector);
 
-        store.delete('default');
-        expect(store.getAllOnce(), isEmpty);
-        store.insert(e);
+        store.delete(key: 'default');
+        expect(store.queryOnce(), isEmpty);
+        store.write(e);
 
         db.dispose();
       }
@@ -661,7 +692,7 @@ void main() {
 
         final store = db.entityStore(indexedEntityConnector);
 
-        store.insert(e);
+        store.write(e);
 
         db.dispose();
       }
@@ -699,11 +730,11 @@ void main() {
 
     final store = db.entityStore(indexedEntityConnector);
 
-    expect(store.getAllOnce(), isEmpty);
+    expect(store.queryOnce(), isEmpty);
 
     final now = DateTime.now();
 
-    store.insert(
+    store.write(
       _AllSupportedIndexTypes.defaultIfNull(
         string: 'default',
         dateTime: now,
@@ -712,39 +743,41 @@ void main() {
     );
 
     expect(
-      store.queryOnce((cols) => cols['dateTime'].equals(now)),
+      store.queryOnce(where: (cols) => cols['dateTime'].equals(now)),
       hasLength(1),
     );
     expect(
-      store.queryOnce((cols) => cols['dateTime'].equals(now.toUtc())),
+      store.queryOnce(where: (cols) => cols['dateTime'].equals(now.toUtc())),
       hasLength(1),
     );
 
     expect(
-      store.queryOnce((cols) => cols['dateTimeOpt'].equals(null)),
+      store.queryOnce(where: (cols) => cols['dateTimeOpt'].equals(null)),
       hasLength(1),
     );
 
     // DateTime: less than, greater than
     expect(
-      store.queryOnce((cols) => cols['dateTime'].lessThan(now)),
+      store.queryOnce(where: (cols) => cols['dateTime'].lessThan(now)),
       isEmpty,
     );
     expect(
-      store.queryOnce((cols) => cols['dateTime'].lessThanOrEqual(now)),
+      store.queryOnce(where: (cols) => cols['dateTime'].lessThanOrEqual(now)),
       hasLength(1),
     );
     expect(
-      store.queryOnce((cols) => cols['dateTime'].greaterThan(now)),
+      store.queryOnce(where: (cols) => cols['dateTime'].greaterThan(now)),
       isEmpty,
     );
     expect(
-      store.queryOnce((cols) => cols['dateTime'].greaterThanOrEqual(now)),
+      store.queryOnce(
+        where: (cols) => cols['dateTime'].greaterThanOrEqual(now),
+      ),
       hasLength(1),
     );
     expect(
       store.queryOnce(
-        (cols) => cols['dateTime'].greaterThan(
+        where: (cols) => cols['dateTime'].greaterThan(
           now.subtract(const Duration(seconds: 1)),
         ),
       ),
@@ -753,84 +786,88 @@ void main() {
 
     // Null field: Should not be found for less than, equal, or greater than
     expect(
-      store.queryOnce((cols) => cols['dateTimeOpt'].equals(now)),
+      store.queryOnce(where: (cols) => cols['dateTimeOpt'].equals(now)),
       isEmpty,
     );
     expect(
-      store.queryOnce((cols) => cols['dateTimeOpt'].lessThan(now)),
+      store.queryOnce(where: (cols) => cols['dateTimeOpt'].lessThan(now)),
       isEmpty,
     );
     expect(
-      store.queryOnce((cols) => cols['dateTimeOpt'].lessThanOrEqual(now)),
+      store.queryOnce(
+          where: (cols) => cols['dateTimeOpt'].lessThanOrEqual(now)),
       isEmpty,
     );
     expect(
-      store.queryOnce((cols) => cols['dateTimeOpt'].greaterThan(now)),
+      store.queryOnce(where: (cols) => cols['dateTimeOpt'].greaterThan(now)),
       isEmpty,
     );
     expect(
-      store.queryOnce((cols) => cols['dateTimeOpt'].greaterThanOrEqual(now)),
+      store.queryOnce(
+          where: (cols) => cols['dateTimeOpt'].greaterThanOrEqual(now)),
       isEmpty,
     );
 
     /// Numeric
-    expect(store.queryOnce((cols) => cols['float'].equals(1000)), hasLength(1));
+    expect(store.queryOnce(where: (cols) => cols['float'].equals(1000)),
+        hasLength(1));
     expect(
-      store.queryOnce((cols) => cols['float'].greaterThan(1000)),
+      store.queryOnce(where: (cols) => cols['float'].greaterThan(1000)),
       isEmpty,
     );
     expect(
-      store.queryOnce((cols) => cols['float'].greaterThan(999.6)),
+      store.queryOnce(where: (cols) => cols['float'].greaterThan(999.6)),
       hasLength(1),
     );
     expect(
-      store.queryOnce((cols) => cols['float'].greaterThanOrEqual(1000.0)),
+      store.queryOnce(
+          where: (cols) => cols['float'].greaterThanOrEqual(1000.0)),
       hasLength(1),
     );
 
     // String contains
     expect(
-      store.queryOnce((cols) => cols['string'].contains('def')),
+      store.queryOnce(where: (cols) => cols['string'].contains('def')),
       hasLength(1),
     );
     expect(
-      store.queryOnce((cols) => cols['string'].contains('fau')),
+      store.queryOnce(where: (cols) => cols['string'].contains('fau')),
       hasLength(1),
     );
     expect(
-      store.queryOnce((cols) => cols['string'].contains('lt')),
+      store.queryOnce(where: (cols) => cols['string'].contains('lt')),
       hasLength(1),
     );
     expect(
-      store.queryOnce((cols) => cols['string'].contains('default')),
+      store.queryOnce(where: (cols) => cols['string'].contains('default')),
       hasLength(1),
     );
     expect(
-      store.queryOnce((cols) => cols['string'].contains('FAU')),
+      store.queryOnce(where: (cols) => cols['string'].contains('FAU')),
       isEmpty, // does not match, as it's case sensitive by default
     );
     expect(
       store.queryOnce(
-        (cols) => cols['string'].contains('FAU', caseInsensitive: true),
+        where: (cols) => cols['string'].contains('FAU', caseInsensitive: true),
       ),
       hasLength(1), // now matches, as we disabled case-sensitivity
     );
     expect(
       // `null`-able & unsued field
-      store.queryOnce((cols) => cols['stringOpt'].contains('def')),
+      store.queryOnce(where: (cols) => cols['stringOpt'].contains('def')),
       isEmpty,
     );
     expect(
       // `null` string field allows the query, but does not have a match yet
-      store.queryOnce((cols) => cols['stringOpt'].contains('def')),
+      store.queryOnce(where: (cols) => cols['stringOpt'].contains('def')),
       isEmpty,
     );
-    store.insert(
+    store.write(
       _AllSupportedIndexTypes.defaultIfNull(stringOpt: 'xxxx'),
     );
     expect(
       // `null` string field with value has a match now
-      store.queryOnce((cols) => cols['stringOpt'].contains('x')),
+      store.queryOnce(where: (cols) => cols['stringOpt'].contains('x')),
       hasLength(1),
     );
   });
@@ -852,31 +889,31 @@ void main() {
 
     final store = db.entityStore(indexedEntityConnector);
 
-    expect(store.getAllOnce(), isEmpty);
+    expect(store.queryOnce(), isEmpty);
 
     for (var i = 0; i < 10; i++) {
-      store.insert(i);
+      store.write(i);
     }
 
-    expect(store.getAllOnce(), hasLength(10));
+    expect(store.queryOnce(), hasLength(10));
     expect(
-      store.queryOnce((cols) => cols['value'].greaterThan(-1)),
+      store.queryOnce(where: (cols) => cols['value'].greaterThan(-1)),
       hasLength(10),
     );
     expect(
-      store.queryOnce((cols) => cols['value'].greaterThan(-1), limit: 0),
+      store.queryOnce(where: (cols) => cols['value'].greaterThan(-1), limit: 0),
       isEmpty,
     );
     expect(
-      store.queryOnce((cols) => cols['value'].greaterThan(-1), limit: 1),
+      store.queryOnce(where: (cols) => cols['value'].greaterThan(-1), limit: 1),
       hasLength(1),
     );
     expect(
-      store.queryOnce((cols) => cols['value'].greaterThan(-1), limit: 5),
+      store.queryOnce(where: (cols) => cols['value'].greaterThan(-1), limit: 5),
       hasLength(5),
     );
     expect(
-      store.queryOnce((cols) => cols['value'].greaterThan(5), limit: 5),
+      store.queryOnce(where: (cols) => cols['value'].greaterThan(5), limit: 5),
       equals({6, 7, 8, 9}),
     );
   });
@@ -907,24 +944,24 @@ void main() {
 
     final store = db.entityStore(indexedEntityConnector);
 
-    expect(store.getAllOnce(), isEmpty);
+    expect(store.queryOnce(), isEmpty);
 
     for (final n in randomNumbers) {
-      store.insert(n);
+      store.write(n);
     }
 
-    expect(store.getAllOnce(), hasLength(10));
+    expect(store.queryOnce(), hasLength(10));
 
     expect(
       store.queryOnce(
-        (cols) => cols['value'].greaterThan(-1),
+        where: (cols) => cols['value'].greaterThan(-1),
         orderBy: ('value', SortOrder.asc),
       ),
       [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
     );
     expect(
       store.queryOnce(
-        (cols) => cols['value'].greaterThan(-1),
+        where: (cols) => cols['value'].greaterThan(-1),
         orderBy: ('value', SortOrder.desc),
       ),
       [9, 8, 7, 6, 5, 4, 3, 2, 1, 0],
@@ -932,7 +969,7 @@ void main() {
 
     expect(
       store.queryOnce(
-        (cols) => cols['value'].greaterThan(-1),
+        where: (cols) => cols['value'].greaterThan(-1),
         orderBy: ('value', SortOrder.asc),
         limit: 3,
       ),
@@ -940,7 +977,7 @@ void main() {
     );
     expect(
       store.queryOnce(
-        (cols) => cols['value'].greaterThan(-1),
+        where: (cols) => cols['value'].greaterThan(-1),
         orderBy: ('value', SortOrder.desc),
         limit: 3,
       ),
@@ -949,7 +986,7 @@ void main() {
 
     expect(
       store.queryOnce(
-        (cols) => cols['value'].greaterThan(-1),
+        where: (cols) => cols['value'].greaterThan(-1),
         orderBy: ('name', SortOrder.asc),
         limit: 3,
       ),
@@ -961,7 +998,7 @@ void main() {
     );
     expect(
       store.queryOnce(
-        (cols) => cols['value'].greaterThan(-1),
+        where: (cols) => cols['value'].greaterThan(-1),
         orderBy: ('name', SortOrder.desc),
         limit: 3,
       ),
@@ -973,7 +1010,7 @@ void main() {
     );
     expect(
       store.queryOnce(
-        (cols) => cols['isEven'].equals(true),
+        where: (cols) => cols['isEven'].equals(true),
         orderBy: ('name', SortOrder.desc),
         limit: 3,
       ),
@@ -985,7 +1022,7 @@ void main() {
     );
     expect(
       store.queryOnce(
-        (cols) => cols['isEven'].equals(true),
+        where: (cols) => cols['isEven'].equals(true),
         orderBy: ('name', SortOrder.asc),
         limit: 3,
       ),
@@ -997,13 +1034,13 @@ void main() {
     );
 
     expect(
-      store.getAllOnce(
+      store.queryOnce(
         orderBy: ('value', SortOrder.asc),
       ),
       [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
     );
     expect(
-      store.getAllOnce(
+      store.queryOnce(
         orderBy: ('value', SortOrder.desc),
       ),
       [9, 8, 7, 6, 5, 4, 3, 2, 1, 0],
@@ -1028,27 +1065,27 @@ void main() {
 
     final store = db.entityStore(indexedEntityConnector);
 
-    expect(store.getAllOnce(), isEmpty);
+    expect(store.queryOnce(), isEmpty);
 
     for (final n in [1, 2, 3]) {
-      store.insert(n);
+      store.write(n);
     }
 
     expect(
-      store.singleOnce((cols) => cols['value'].equals(10)),
+      store.singleOnce(where: (cols) => cols['value'].equals(10)),
       isNull,
     );
     expect(
-      store.singleOnce((cols) => cols['value'].equals(3)),
+      store.singleOnce(where: (cols) => cols['value'].equals(3)),
       3,
     );
     expect(
-      store.singleOnce((cols) => cols['isEven'].equals(true)),
+      store.singleOnce(where: (cols) => cols['isEven'].equals(true)),
       2,
     );
     expect(
       // query with 2 matches
-      () => store.singleOnce((cols) => cols['isEven'].equals(false)),
+      () => store.singleOnce(where: (cols) => cols['isEven'].equals(false)),
       throwsA(
         isA<Exception>().having(
           (e) => e.toString(),
@@ -1066,28 +1103,29 @@ void main() {
 
     final fooStore = db.entityStore(fooConnector);
 
-    expect(fooStore.getAllOnce(), isEmpty);
+    expect(fooStore.queryOnce(), isEmpty);
 
-    fooStore.insert(
+    fooStore.write(
       _FooEntity(id: 1, valueA: 'a', valueB: 1, valueC: true),
     );
-    fooStore.insert(
+    fooStore.write(
       _FooEntity(id: 2, valueA: 'b', valueB: 2, valueC: true),
     );
 
-    expect(fooStore.getAllOnce(), hasLength(2));
+    expect(fooStore.queryOnce(), hasLength(2));
 
-    final singleSubscription = fooStore.get(1);
-    final listSubscription = fooStore.query((cols) => cols['b'].lessThan(5));
+    final singleSubscription = fooStore.read(1);
+    final listSubscription =
+        fooStore.query(where: (cols) => cols['b'].lessThan(5));
     expect(singleSubscription.value, isA<_FooEntity>());
     expect(listSubscription.value, hasLength(2));
 
     // Delete all rows
-    fooStore.deleteAll();
+    fooStore.delete(all: true);
 
     expect(singleSubscription.value, isNull);
     expect(listSubscription.value, isEmpty);
-    expect(fooStore.getAllOnce(), isEmpty);
+    expect(fooStore.queryOnce(), isEmpty);
   });
 
   test(
@@ -1100,10 +1138,10 @@ void main() {
 
       final fooStore = db.entityStore(fooConnector);
 
-      expect(fooStore.getAllOnce(), isEmpty);
+      expect(fooStore.queryOnce(), isEmpty);
 
       // Insert one row, so statements are prepared
-      fooStore.insert(
+      fooStore.write(
         _FooEntity(id: 0, valueA: 'a', valueB: 1, valueC: true),
       );
 
@@ -1114,7 +1152,7 @@ void main() {
         final sw2 = Stopwatch()..start();
 
         for (var i = 1; i <= batchSize; i++) {
-          fooStore.insert(
+          fooStore.write(
             _FooEntity(id: i, valueA: 'a', valueB: 1, valueC: true),
           );
         }
@@ -1128,7 +1166,7 @@ void main() {
       {
         final sw2 = Stopwatch()..start();
 
-        fooStore.insertMany(
+        fooStore.writeMany(
           [
             for (var i = batchSize + 1; i <= batchSize * 2; i++)
               _FooEntity(id: i, valueA: 'a', valueB: 1, valueC: true),
@@ -1144,7 +1182,7 @@ void main() {
       {
         final sw2 = Stopwatch()..start();
 
-        fooStore.insertMany(
+        fooStore.writeMany(
           [
             for (var i = batchSize + 1; i <= batchSize * 2; i++)
               _FooEntity(id: i, valueA: 'aaaaaa', valueB: 111111, valueC: true),
@@ -1156,7 +1194,7 @@ void main() {
         );
       }
 
-      expect(fooStore.getAllOnce(), hasLength(batchSize * 2 + 1));
+      expect(fooStore.queryOnce(), hasLength(batchSize * 2 + 1));
     },
     skip: !Platform.isMacOS, // only run locally for now
   );
