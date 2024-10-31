@@ -1,3 +1,11 @@
+## 1.4.3
+
+* Add `insertMany` method to handle batch inserts/updates
+  * This, combined with a new index, massively speeds up large inserts:
+    - Inserting 1000 entities with 2 indices is now 40x faster than a simple loop using `insert`s individually
+    - When updating 1000 existing entities with new values, the new implementation leads to an even greater 111x speed-up
+  * This further proves that the synchronous database approach can handle even large local databases and operations. If you need to insert even larger amounts of data without dropping a frame, there is [a solution for that](https://github.com/simolus3/sqlite3.dart/issues/260#issuecomment-2446618546) as well.
+
 ## 1.4.2
 
 * Add full example app

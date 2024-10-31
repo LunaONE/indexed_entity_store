@@ -251,6 +251,11 @@ class IndexedEntityStore<T, K> {
     );
   }
 
+  late final _entityInsertStatement = _database.prepare(
+    'REPLACE INTO `entity` (`type`, `key`, `value`) VALUES (?, ?, ?)',
+    persistent: true,
+  );
+
   /// Insert or updates the given entity in the database.
   ///
   /// In case an entity with the same primary already exists in the database, it will be updated.
@@ -259,8 +264,7 @@ class IndexedEntityStore<T, K> {
     _database.execute('BEGIN');
     assert(_database.autocommit == false);
 
-    _database.execute(
-      'REPLACE INTO `entity` (`type`, `key`, `value`) VALUES (?, ?, ?)',
+    _entityInsertStatement.execute(
       [_entityKey, _connector.getPrimaryKey(e), _connector.serialize(e)],
     );
 
@@ -271,15 +275,37 @@ class IndexedEntityStore<T, K> {
     _handleUpdate({_connector.getPrimaryKey(e)});
   }
 
-  void _updateIndexInternal(T e) {
-    _database.execute(
-      'DELETE FROM `index` WHERE `type` = ? AND `entity` = ?',
-      [_entityKey, _connector.getPrimaryKey(e)],
-    );
+  /// Insert or update many entities in a single batch
+  ///
+  /// Notification for changes will only fire after all changes have been written (meaning queries will get a single update after all writes are finished)
+  void insertMany(Iterable<T> entities) {
+    _database.execute('BEGIN');
+    assert(_database.autocommit == false);
 
+    final keys = <K>{};
+    for (final e in entities) {
+      _entityInsertStatement.execute(
+        [_entityKey, _connector.getPrimaryKey(e), _connector.serialize(e)],
+      );
+
+      _updateIndexInternal(e);
+
+      keys.add(_connector.getPrimaryKey(e));
+    }
+
+    _database.execute('COMMIT');
+
+    _handleUpdate(keys);
+  }
+
+  late final _insertIndexStatement = _database.prepare(
+    'INSERT INTO `index` (`type`, `entity`, `field`, `value`) VALUES (?, ?, ?, ?)',
+    persistent: true,
+  );
+
+  void _updateIndexInternal(T e) {
     for (final indexColumn in _indexColumns._indexColumns.values) {
-      _database.execute(
-        'INSERT INTO `index` (`type`, `entity`, `field`, `value`) VALUES (?, ?, ?, ?)',
+      _insertIndexStatement.execute(
         [
           _entityKey,
           _connector.getPrimaryKey(e),
