@@ -75,16 +75,16 @@ class SimpleSynchronousRepository {
   }) : _store = store;
 
   void init() {
-    _store.insert(Todo(id: 1, text: 'Brew Coffe', done: false));
-    _store.insert(Todo(id: 2, text: 'Get milk', done: false));
-    _store.insert(Todo(id: 3, text: 'Read newspaper', done: false));
+    _store.write(Todo(id: 1, text: 'Brew Coffe', done: false));
+    _store.write(Todo(id: 2, text: 'Get milk', done: false));
+    _store.write(Todo(id: 3, text: 'Read newspaper', done: false));
   }
 
   QueryResult<List<Todo>> getOpenTodos() {
-    return _store.query((cols) => cols['done'].equals(false));
+    return _store.query(where: (cols) => cols['done'].equals(false));
   }
 
   void updateTodo(Todo todo) {
-    _store.insert(todo);
+    _store.write(todo);
   }
 }

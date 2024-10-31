@@ -169,7 +169,7 @@ class AsyncProductRepository {
   DisposableValueListenable<AsyncValue<ProductDetail>> getProductDetail(
     int productId,
   ) {
-    final productQuery = _detailStore.get(productId);
+    final productQuery = _detailStore.read(productId);
 
     if (productQuery.value != null &&
         // If data is older than 30s, run the fetch below (but show the most recent value while it's loading)
@@ -194,7 +194,7 @@ class AsyncProductRepository {
       _productApi.getProductDetail(productId).then((product) {
         // When we receive the product successfully, we put it into the database,
         // from which point on the product query will deliver it to the outside
-        _detailStore.insert(product);
+        _detailStore.write(product);
 
         return product;
       }).asAsyncValue(),

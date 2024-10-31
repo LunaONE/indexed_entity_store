@@ -1,3 +1,11 @@
+## 2.0.0
+
+* Update method names
+  * Most notably `insert` is now `write` to transmit the ambivalence between "insert" and "update"
+  * `get` is now `read` to be symmetric to write (but instead of entities it takes keys, of course)
+  * `query` now takes an optional `where` parameter, so instead of `getAll()` you can now just use `query()` to get the same result
+  * `delete` is now switched to take the entity by default, and offers `deleteByKey` to delete by primary key if you know it
+
 ## 1.4.3
 
 * Add `insertMany` method to handle batch inserts/updates

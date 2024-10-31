@@ -39,11 +39,11 @@ final db = IndexedEntityDabase.open('/tmp/appdata.sqlite3'); // in practice put 
 final todos = db.entityStore(todoConnector);
 
 // While using the String columns here is not super nice, this works without code gen and will throw if using a non-indexed column
-final openTodos = todos.query((cols) => cols['done'].equals(false));
+final openTodos = todos.query(where: (cols) => cols['done'].equals(false));
 
 print(openTodos.value); // prints an empty list on first run as no TODOs are yet added to the database
 
-todos.insert(
+todos.write(
   Todo(id: 1, text: 'Publish new version', done: false),
 );
 
