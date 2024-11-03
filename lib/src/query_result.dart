@@ -1,15 +1,36 @@
 part of 'index_entity_store.dart';
 
-typedef MappedDBResult<T> = ({List<dynamic> dbValues, T result});
+sealed class _MappedDBResult<T> {
+  /// Returns an error for the same generic type
+  _ErrorDBResult<T> _error(Object e) {
+    return _ErrorDBResult(e);
+  }
+}
+
+class _SuccessDBResult<T> extends _MappedDBResult<T> {
+  _SuccessDBResult({
+    required this.dbValues,
+    required this.result,
+  });
+
+  final List<dynamic> dbValues;
+  final T result;
+}
+
+class _ErrorDBResult<T> extends _MappedDBResult<T> {
+  _ErrorDBResult(this.error);
+
+  final Object error;
+}
 
 class QueryResult<T> implements DisposableValueListenable<T> {
   QueryResult._({
-    required MappedDBResult<T> initialValue,
+    required _MappedDBResult<T> initialValue,
     void Function(QueryResult<T> self)? onDispose,
   })  : _value = ValueNotifier(initialValue),
         _onDispose = onDispose;
 
-  final ValueNotifier<MappedDBResult<T>> _value;
+  final ValueNotifier<_MappedDBResult<T>> _value;
 
   final void Function(QueryResult<T> self)? _onDispose;
 
@@ -24,7 +45,10 @@ class QueryResult<T> implements DisposableValueListenable<T> {
   }
 
   @override
-  T get value => _value.value.result;
+  T get value => switch (_value.value) {
+        _SuccessDBResult<T>(:final result) => result,
+        _ErrorDBResult<T>(:final error) => throw error,
+      };
 
   @override
   @mustCallSuper

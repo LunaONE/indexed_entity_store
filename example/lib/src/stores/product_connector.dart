@@ -6,16 +6,27 @@ import 'package:indexed_entity_store_example/src/stores/entities/product.dart';
 
 typedef ProductDetailStore = IndexedEntityStore<ProductDetail, int>;
 
-final productDetailConnector = IndexedEntityConnector<ProductDetail,
-    int /* key type */, String /* DB type */ >(
-  entityKey: 'product',
-  getPrimaryKey: (t) => t.id,
-  getIndices: (index) {},
-  serialize: (t) => jsonEncode(t.toJSON()),
-  deserialize: (s) => ProductDetail.fromJSON(
-    jsonDecode(s) as Map<String, dynamic>,
-  ),
-);
+class ProductDetailConnector
+    implements
+        IndexedEntityConnector<ProductDetail, int /* key type */,
+            String /* DB type */ > {
+  @override
+  final entityKey = 'product';
+
+  @override
+  void getIndices(IndexCollector<ProductDetail> index) {}
+
+  @override
+  int getPrimaryKey(ProductDetail e) => e.id;
+
+  @override
+  String serialize(ProductDetail e) => jsonEncode(e.toJSON());
+
+  @override
+  ProductDetail deserialize(String s) => ProductDetail.fromJSON(
+        jsonDecode(s) as Map<String, dynamic>,
+      );
+}
 
 /// Creates a new ProductDetail store, backed by a new, temporary database
 ///
@@ -23,5 +34,5 @@ final productDetailConnector = IndexedEntityConnector<ProductDetail,
 /// and more importantly the same instance would be used instead of a new one created
 /// each time as done here for the showcase.
 ProductDetailStore getProductDetailStore() {
-  return getNewDatabase().entityStore(productDetailConnector);
+  return getNewDatabase().entityStore(ProductDetailConnector());
 }

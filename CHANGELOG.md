@@ -1,5 +1,8 @@
 ## 2.0.0
 
+* 🔥 Hot-reload: The connector interface has been adapted to allow for hot reload (in addition to hot restart)
+  * This means that instead of a configuration object instead, one now need to implement a class, such that updates to the implementation are accessible on hot reload (which was not possible with the configuration object, which was treated as "state" and thus not refreshed)
+  * While some patterns on top of the configuration objects (e.g. passing factories) could've allowed for hot-reload, requiring an implementation of the connector class ensures that it works all the time. This requires a one-time migration of all existing code though.
 * Update method names
   * Most notably `insert` is now `write` to transmit the ambivalence between "insert" and "update"
   * `get` is now `read` to be symmetric to write (but instead of entities it takes keys, of course)
