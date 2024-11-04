@@ -383,6 +383,11 @@ class IndexedEntityStore<T, K> {
 
       _database.execute('BEGIN');
 
+      _database.execute(
+        'DELETE FROM `index` WHERE `type` = ?',
+        [_entityKey],
+      );
+
       final entities = getAllOnce();
 
       for (final e in entities) {
