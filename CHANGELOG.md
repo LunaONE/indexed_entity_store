@@ -1,3 +1,7 @@
+## 1.4.4
+
+* Add another example, showing how to build repositories with a `Future<ValueListenable<T>>` interface
+
 ## 1.4.3
 
 * Add `insertMany` method to handle batch inserts/updates

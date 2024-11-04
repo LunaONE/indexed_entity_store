@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 import 'package:indexed_entity_store_example/src/examples/async_value_group_and_detail.dart';
+import 'package:indexed_entity_store_example/src/examples/future_value_listenable_group_and_detail.dart';
 import 'package:indexed_entity_store_example/src/examples/simple_synchronous.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -38,10 +39,12 @@ class ExampleSelector extends StatefulWidget {
 class _ExampleSelectorState extends State<ExampleSelector> {
   Widget? _example;
 
-  static Map<String, Widget> examples = {
-    'Simple synchronous data repository': const SimpleSynchronousExample(),
-    'AsyncValue-based product list & detail view':
-        const AsyncValueGroupDetailExample(),
+  static const Map<String, Widget> examples = {
+    'Simple synchronous data repository': SimpleSynchronousExample(),
+    '`AsyncValue`-based product list & detail view':
+        AsyncValueGroupDetailExample(),
+    '`Future<ValueSource<T>>`-based product list & detail view':
+        AsynchronousGroupDetailExample(),
   };
 
   @override
