@@ -135,13 +135,17 @@ void main() {
       {
         final db = IndexedEntityDabase.open(path);
 
-        final fooStore = db.entityStore(fooConnectorWithIndexOnC);
+        final fooStore = db.entityStore(fooConnectorWithIndexOnBAndC);
 
         expect(fooStore.getAllOnce(), hasLength(1));
         // old index is not longer supported
         expect(
           () => fooStore.queryOnce((cols) => cols['a'].equals('A')),
           throwsException,
+        );
+        expect(
+          fooStore.queryOnce((cols) => cols['b'].equals(1002)),
+          hasLength(1),
         );
         expect(
           fooStore.queryOnce((cols) => cols['c'].equals(true)),
@@ -1101,11 +1105,12 @@ final fooConnector = IndexedEntityConnector<_FooEntity, int, String>(
   ),
 );
 
-final fooConnectorWithIndexOnC =
+final fooConnectorWithIndexOnBAndC =
     IndexedEntityConnector<_FooEntity, int, String>(
   entityKey: fooConnector.entityKey,
   getPrimaryKey: fooConnector.getPrimaryKey,
   getIndices: (index) {
+    index((e) => e.valueB + 1000, as: 'b'); // updated index B
     index((e) => e.valueC, as: 'c');
   },
   serialize: fooConnector.serialize,

@@ -1,6 +1,7 @@
 ## 1.4.4
 
 * Add another example, showing how to build repositories with a `Future<ValueListenable<T>>` interface
+* Fix index migration bug (introduced in 1.4.3), when a name is reused across index versions
 
 ## 1.4.3
 
