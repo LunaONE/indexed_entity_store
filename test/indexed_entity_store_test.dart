@@ -339,7 +339,7 @@ void main() {
       {
         valueStore.insert(_ValueWrapper(1, 'one'));
 
-        // both subscriptions got updated
+        // subscriptions did not emit a new value
         expect(
           valuesWithId1,
           [
@@ -364,7 +364,7 @@ void main() {
       {
         valueStore.insert(_ValueWrapper(3, 'three'));
 
-        // both subscriptions got updated
+        // subscriptions did not emit a new value
         expect(
           valuesWithId1,
           [

@@ -261,16 +261,22 @@ class IndexedEntityStore<T, K> {
   /// In case an entity with the same primary already exists in the database, it will be updated.
   // TODO(tp): We might want to rename this to `upsert` going forward to make it clear that this will overwrite and not error when the entry already exits (alternatively maybe `persist`, `write`, or `set`).
   void insert(T e) {
-    _database.execute('BEGIN');
-    assert(_database.autocommit == false);
+    try {
+      _database.execute('BEGIN');
+      assert(_database.autocommit == false);
 
-    _entityInsertStatement.execute(
-      [_entityKey, _connector.getPrimaryKey(e), _connector.serialize(e)],
-    );
+      _entityInsertStatement.execute(
+        [_entityKey, _connector.getPrimaryKey(e), _connector.serialize(e)],
+      );
 
-    _updateIndexInternal(e);
+      _updateIndexInternal(e);
 
-    _database.execute('COMMIT');
+      _database.execute('COMMIT');
+    } catch (e) {
+      _database.execute('ROLLBACK');
+
+      rethrow;
+    }
 
     _handleUpdate({_connector.getPrimaryKey(e)});
   }
@@ -279,24 +285,36 @@ class IndexedEntityStore<T, K> {
   ///
   /// Notification for changes will only fire after all changes have been written (meaning queries will get a single update after all writes are finished)
   void insertMany(Iterable<T> entities) {
-    _database.execute('BEGIN');
-    assert(_database.autocommit == false);
-
     final keys = <K>{};
-    for (final e in entities) {
-      _entityInsertStatement.execute(
-        [_entityKey, _connector.getPrimaryKey(e), _connector.serialize(e)],
-      );
 
-      _updateIndexInternal(e);
+    try {
+      _database.execute('BEGIN');
+      assert(_database.autocommit == false);
 
-      keys.add(_connector.getPrimaryKey(e));
+      for (final e in entities) {
+        _entityInsertStatement.execute(
+          [_entityKey, _connector.getPrimaryKey(e), _connector.serialize(e)],
+        );
+
+        _updateIndexInternal(e);
+
+        keys.add(_connector.getPrimaryKey(e));
+      }
+
+      _database.execute('COMMIT');
+    } catch (e) {
+      _database.execute('ROLLBACK');
+
+      rethrow;
     }
-
-    _database.execute('COMMIT');
 
     _handleUpdate(keys);
   }
+
+  late final _deleteIndexStatement = _database.prepare(
+    'DELETE FROM `index` WHERE `type` = ? AND `entity` = ?',
+    persistent: true,
+  );
 
   late final _insertIndexStatement = _database.prepare(
     'INSERT INTO `index` (`type`, `entity`, `field`, `value`) VALUES (?, ?, ?, ?)',
@@ -304,6 +322,8 @@ class IndexedEntityStore<T, K> {
   );
 
   void _updateIndexInternal(T e) {
+    _deleteIndexStatement.execute([_entityKey, _connector.getPrimaryKey(e)]);
+
     for (final indexColumn in _indexColumns._indexColumns.values) {
       _insertIndexStatement.execute(
         [
@@ -381,22 +401,28 @@ class IndexedEntityStore<T, K> {
         'Need to update index as fields where changed or added',
       );
 
-      _database.execute('BEGIN');
+      try {
+        _database.execute('BEGIN');
 
-      _database.execute(
-        'DELETE FROM `index` WHERE `type` = ?',
-        [_entityKey],
-      );
+        _database.execute(
+          'DELETE FROM `index` WHERE `type` = ?',
+          [_entityKey],
+        );
 
-      final entities = getAllOnce();
+        final entities = getAllOnce();
 
-      for (final e in entities) {
-        _updateIndexInternal(e);
+        for (final e in entities) {
+          _updateIndexInternal(e);
+        }
+
+        _database.execute('COMMIT');
+
+        debugPrint('Updated indices for ${entities.length} entities');
+      } catch (e) {
+        _database.execute('ROLLBACK');
+
+        rethrow;
       }
-
-      _database.execute('COMMIT');
-
-      debugPrint('Updated indices for ${entities.length} entities');
     }
   }
 
