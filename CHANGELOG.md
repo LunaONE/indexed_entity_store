@@ -1,3 +1,8 @@
+## 1.4.5
+
+* try/catch with `ROLLBACK` in case a transaction fails, so as to not leave the database in a locked state
+* Re-add explicit deletion of index, as `REPLACE INTO` was observed to not remove the entity's index on all platforms (and there is no clear documentation under what circumstances it would do or not do so)
+
 ## 1.4.4
 
 * Add another example, showing how to build repositories with a `Future<ValueListenable<T>>` interface
