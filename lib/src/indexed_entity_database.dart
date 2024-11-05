@@ -72,18 +72,40 @@ class IndexedEntityDabase {
     return IndexedEntityDabase._(path);
   }
 
+  final _stores = <String, IndexedEntityStore>{};
+
   IndexedEntityStore<T, K> entityStore<T, K, S>(
     IndexedEntityConnector<T, K, S> connector,
   ) {
-    // TODO(tp): Throw if another connected for `type` is already connect (taking reloads into account)
+    if (_stores.containsKey(connector.entityKey)) {
+      throw Exception(
+        'A store for "${connector.entityKey}" has already been created',
+      );
+    }
 
-    return IndexedEntityStore<T, K>(
+    final store = IndexedEntityStore<T, K>(
       _database,
       connector,
     );
+
+    _stores[connector.entityKey] = store;
+
+    return store;
   }
 
+  /// Closes the underlying database
   dispose() {
     _database.dispose();
+
+    _stores.clear();
+  }
+
+  /// Updates the database in response to potential code changes after a hot reload
+  /// Either have this method called in a high-level `State.reassemble` (before the database is used),
+  /// or use the provided `IndexedEntityStoreHotReloadWrapper` widget.
+  void handleHotReload() {
+    for (final store in _stores.values) {
+      store.init();
+    }
   }
 }

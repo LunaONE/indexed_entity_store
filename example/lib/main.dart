@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 import 'package:indexed_entity_store_example/src/examples/async_value_group_and_detail.dart';
+import 'package:indexed_entity_store_example/src/examples/hot_reload.dart';
 import 'package:indexed_entity_store_example/src/examples/simple_synchronous.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -39,6 +40,7 @@ class _ExampleSelectorState extends State<ExampleSelector> {
   Widget? _example;
 
   static Map<String, Widget> examples = {
+    'Hot-reload example': const HotReloadExample(),
     'Simple synchronous data repository': const SimpleSynchronousExample(),
     'AsyncValue-based product list & detail view':
         const AsyncValueGroupDetailExample(),

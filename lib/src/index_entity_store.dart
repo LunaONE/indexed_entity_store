@@ -8,7 +8,10 @@ part 'index_columns.dart';
 part 'query.dart';
 part 'query_result.dart';
 
-typedef QueryResultMapping<T> = (MappedDBResult<T> Function(), QueryResult<T>);
+typedef QueryResultMapping<T> = (
+  _SuccessDBResult<T> Function(),
+  QueryResult<T>
+);
 
 enum SortOrder {
   asc,
@@ -20,24 +23,30 @@ class IndexedEntityStore<T, K> {
     this._database,
     this._connector,
   ) {
-    {
-      final collector = IndexCollector<T>._(_connector.entityKey);
+    init();
+  }
 
-      _connector.getIndices(collector);
+  void init() {
+    debugPrint('$runtimeType.init');
 
-      _indexColumns = IndexColumns._({
-        for (final col in collector._indices) col._field: col,
-      });
-    }
+    final collector = IndexCollector<T>._(_connector.entityKey);
+
+    _connector.getIndices(collector);
+
+    _indexColumns = IndexColumns._({
+      for (final col in collector._indices) col._field: col,
+    });
 
     _ensureIndexIsUpToDate();
+
+    _updateAllQueries();
   }
 
   final Database _database;
 
   final IndexedEntityConnector<T, K, dynamic> _connector;
 
-  late final IndexColumns _indexColumns;
+  late IndexColumns _indexColumns;
 
   String get _entityKey => _connector.entityKey;
 
@@ -79,19 +88,22 @@ class IndexedEntityStore<T, K> {
     return _getOnce(key).result;
   }
 
-  MappedDBResult<T?> _getOnce(K key) {
+  _SuccessDBResult<T?> _getOnce(K key) {
     final res = _database.select(
       'SELECT value FROM `entity` WHERE `type` = ? AND `key` = ?',
       [_entityKey, key],
     );
 
     if (res.isEmpty) {
-      return (dbValues: [null], result: null);
+      return _SuccessDBResult(dbValues: [null], result: null);
     }
 
     final dbValue = res.single['value'];
 
-    return (dbValues: [dbValue], result: _connector.deserialize(dbValue));
+    return _SuccessDBResult(
+      dbValues: [dbValue],
+      result: _connector.deserialize(dbValue),
+    );
   }
 
   /// Returns the single entity (or null) for the given query
@@ -124,7 +136,7 @@ class IndexedEntityStore<T, K> {
     return _querySingleOnce(where).result;
   }
 
-  MappedDBResult<T?> _querySingleOnce(QueryBuilder where) {
+  _SuccessDBResult<T?> _querySingleOnce(QueryBuilder where) {
     final result = _queryOnce(where: where, limit: 2);
 
     if (result.result.length > 1) {
@@ -133,7 +145,8 @@ class IndexedEntityStore<T, K> {
       );
     }
 
-    return (dbValues: result.dbValues, result: result.result.firstOrNull);
+    return _SuccessDBResult(
+        dbValues: result.dbValues, result: result.result.firstOrNull);
   }
 
   /// Returns a subscription to entities matching the given query
@@ -166,7 +179,7 @@ class IndexedEntityStore<T, K> {
     return _queryOnce(where: where, orderBy: orderBy, limit: limit).result;
   }
 
-  MappedDBResult<List<T>> _queryOnce({
+  _SuccessDBResult<List<T>> _queryOnce({
     QueryBuilder? where,
     OrderByClause? orderBy,
     int? limit,
@@ -194,7 +207,7 @@ class IndexedEntityStore<T, K> {
 
     final dbValues = res.map((e) => e['value']).toList();
 
-    return (
+    return _SuccessDBResult(
       dbValues: dbValues,
       result: dbValues.map((v) => _connector.deserialize(v)).toList(),
     );
@@ -332,6 +345,11 @@ class IndexedEntityStore<T, K> {
 
       _database.execute('BEGIN');
 
+      _database.execute(
+        'DELETE FROM `index` WHERE `type` = ?',
+        [_entityKey],
+      );
+
       final entities = queryOnce();
 
       for (final e in entities) {
@@ -350,11 +368,12 @@ class IndexedEntityStore<T, K> {
       if (singleEntitySubscriptions != null) {
         for (final mapping in singleEntitySubscriptions) {
           final newValue = mapping.$1();
+          final currentValue = mapping.$2._value.value;
 
-          if (newValue.dbValues.length ==
-                  mapping.$2._value.value.dbValues.length &&
-              newValue.dbValues.indexed.every(
-                  (e) => mapping.$2._value.value.dbValues[e.$1] == e.$2)) {
+          if (currentValue is _SuccessDBResult &&
+              newValue.dbValues.length == currentValue.dbValues.length &&
+              newValue.dbValues.indexed
+                  .every((e) => currentValue.dbValues[e.$1] == e.$2)) {
             continue; // values already match
           }
 
@@ -365,14 +384,54 @@ class IndexedEntityStore<T, K> {
 
     for (final mapping in _entityResults) {
       final newValue = mapping.$1();
+      final currentValue = mapping.$2._value.value;
 
-      if (newValue.dbValues.length == mapping.$2._value.value.dbValues.length &&
+      if (currentValue is _SuccessDBResult &&
+          newValue.dbValues.length == currentValue.dbValues.length &&
           newValue.dbValues.indexed
-              .every((e) => mapping.$2._value.value.dbValues[e.$1] == e.$2)) {
+              .every((e) => currentValue.dbValues[e.$1] == e.$2)) {
         continue; // values already match
       }
 
       mapping.$2._value.value = newValue;
+    }
+  }
+
+  void _updateAllQueries() {
+    for (final mapping in _singleEntityResults.values.expand((e) => e)) {
+      try {
+        final newValue = mapping.$1();
+        final currentValue = mapping.$2._value.value;
+
+        if (currentValue is _SuccessDBResult &&
+            newValue.dbValues.length == currentValue.dbValues.length &&
+            newValue.dbValues.indexed
+                .every((e) => currentValue.dbValues[e.$1] == e.$2)) {
+          continue; // values already match
+        }
+
+        mapping.$2._value.value = newValue;
+      } catch (e) {
+        mapping.$2._value.value = mapping.$2._value.value._error(e);
+      }
+    }
+
+    for (final mapping in _entityResults) {
+      try {
+        final newValue = mapping.$1();
+        final currentValue = mapping.$2._value.value;
+
+        if (currentValue is _SuccessDBResult &&
+            newValue.dbValues.length == currentValue.dbValues.length &&
+            newValue.dbValues.indexed
+                .every((e) => currentValue.dbValues[e.$1] == e.$2)) {
+          continue; // values already match
+        }
+
+        mapping.$2._value.value = newValue;
+      } catch (e) {
+        mapping.$2._value.value = mapping.$2._value.value._error(e);
+      }
     }
   }
 }
