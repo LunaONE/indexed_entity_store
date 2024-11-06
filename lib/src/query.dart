@@ -122,3 +122,40 @@ class _LessThanQuery extends Query {
     );
   }
 }
+
+class _ContainsStringQuery extends Query {
+  _ContainsStringQuery(
+    this.entity,
+    this.field,
+    this.value, {
+    required this.caseInsensitive,
+  });
+
+  final String entity;
+  final String field;
+  final String value;
+  final bool caseInsensitive;
+
+  @override
+  (String, List) _entityKeysQuery() {
+    if (caseInsensitive) {
+      return (
+        "SELECT `entity` FROM `index` WHERE `type` = ? AND `field` = ? AND `value` LIKE ?",
+        [
+          entity,
+          field,
+          '%$value%',
+        ],
+      );
+    }
+
+    return (
+      "SELECT `entity` FROM `index` WHERE `type` = ? AND `field` = ? AND `value` GLOB ?",
+      [
+        entity,
+        field,
+        '*$value*',
+      ],
+    );
+  }
+}

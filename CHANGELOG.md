@@ -1,3 +1,7 @@
+## 1.4.7
+
+* Add `contains` functions for `String` index columns
+
 ## 1.4.6
 
 * Re-enable foreign key constraint for every session
