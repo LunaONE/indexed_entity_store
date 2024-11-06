@@ -1,3 +1,8 @@
+## 1.4.6
+
+* Re-enable foreign key constraint for every session
+  * Clean up unused indices which were not automatically removed before (but will be going forward)
+
 ## 1.4.5
 
 * try/catch with `ROLLBACK` in case a transaction fails, so as to not leave the database in a locked state

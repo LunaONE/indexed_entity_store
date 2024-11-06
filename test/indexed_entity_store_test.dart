@@ -606,6 +606,66 @@ void main() {
     },
   );
 
+  test(
+    'Foreign key constraint persists across sessions',
+    () async {
+      final path =
+          '/tmp/index_entity_store_test_${FlutterTimeline.now}.sqlite3';
+
+      final db = IndexedEntityDabase.open(path);
+
+      final indexedEntityConnector =
+          IndexedEntityConnector<_AllSupportedIndexTypes, String, String>(
+        entityKey: 'indexed_entity',
+        getPrimaryKey: (e) => e.string,
+        getIndices: (index) {
+          index((e) => e.string, as: 'string');
+        },
+        serialize: (f) => jsonEncode(f.toJSON()),
+        deserialize: (s) => _AllSupportedIndexTypes.fromJSON(
+          jsonDecode(s) as Map<String, dynamic>,
+        ),
+      );
+
+      final store = db.entityStore(indexedEntityConnector);
+
+      expect(store.getAllOnce(), isEmpty);
+
+      final e = _AllSupportedIndexTypes.defaultIfNull(string: 'default');
+
+      store.insert(e);
+
+      db.dispose();
+
+      // now open again, ensuring foreign keys are still on and thus `index`
+      // will be cleaned up with entity removals & overwrites
+
+      // delete & insert
+      {
+        final db = IndexedEntityDabase.open(path);
+
+        final store = db.entityStore(indexedEntityConnector);
+
+        store.delete('default');
+        expect(store.getAllOnce(), isEmpty);
+        store.insert(e);
+
+        db.dispose();
+      }
+
+      // second insert (overwrite)
+      {
+        final db = IndexedEntityDabase.open(path);
+
+        final store = db.entityStore(indexedEntityConnector);
+
+        store.insert(e);
+
+        db.dispose();
+      }
+    },
+  );
+
   test('Query operations', () async {
     final path = '/tmp/index_entity_store_test_${FlutterTimeline.now}.sqlite3';
 
