@@ -27,6 +27,8 @@ void main() {
     expect(fooStore.getAllOnce(), hasLength(1));
 
     expect(fooStore.queryOnce((cols) => cols['a'].equals('a')), hasLength(1));
+    // equals is case sensitive
+    expect(fooStore.queryOnce((cols) => cols['a'].equals('A')), isEmpty);
     expect(fooStore.queryOnce((cols) => cols['a'].equals('b')), hasLength(0));
 
     expect(fooStore.queryOnce((cols) => cols['b'].equals(2)), hasLength(1));
@@ -783,6 +785,52 @@ void main() {
     );
     expect(
       store.queryOnce((cols) => cols['float'].greaterThanOrEqual(1000.0)),
+      hasLength(1),
+    );
+
+    // String contains
+    expect(
+      store.queryOnce((cols) => cols['string'].contains('def')),
+      hasLength(1),
+    );
+    expect(
+      store.queryOnce((cols) => cols['string'].contains('fau')),
+      hasLength(1),
+    );
+    expect(
+      store.queryOnce((cols) => cols['string'].contains('lt')),
+      hasLength(1),
+    );
+    expect(
+      store.queryOnce((cols) => cols['string'].contains('default')),
+      hasLength(1),
+    );
+    expect(
+      store.queryOnce((cols) => cols['string'].contains('FAU')),
+      isEmpty, // does not match, as it's case sensitive by default
+    );
+    expect(
+      store.queryOnce(
+        (cols) => cols['string'].contains('FAU', caseInsensitive: true),
+      ),
+      hasLength(1), // now matches, as we disabled case-sensitivity
+    );
+    expect(
+      // `null`-able & unsued field
+      store.queryOnce((cols) => cols['stringOpt'].contains('def')),
+      isEmpty,
+    );
+    expect(
+      // `null` string field allows the query, but does not have a match yet
+      store.queryOnce((cols) => cols['stringOpt'].contains('def')),
+      isEmpty,
+    );
+    store.insert(
+      _AllSupportedIndexTypes.defaultIfNull(stringOpt: 'xxxx'),
+    );
+    expect(
+      // `null` string field with value has a match now
+      store.queryOnce((cols) => cols['stringOpt'].contains('x')),
       hasLength(1),
     );
   });

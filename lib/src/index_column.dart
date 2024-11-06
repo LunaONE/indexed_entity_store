@@ -158,6 +158,21 @@ class IndexColumn<T /* entity type */, I /* index type */ > {
   // Query operator <=(I value) {
   //   return lessThanOrEqual(value);
   // }
+
+  Query contains(dynamic value, {bool caseInsensitive = false}) {
+    if (value is! String || value is! I) {
+      throw Exception(
+        'Can not build query as field "$_field" needs a value of type $String, but got ${value.runtimeType}.',
+      );
+    }
+
+    return _ContainsStringQuery(
+      _entity,
+      _field,
+      value,
+      caseInsensitive: caseInsensitive,
+    );
+  }
 }
 
 bool _typeEqual<T, Y>() => T == Y;
