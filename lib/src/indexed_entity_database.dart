@@ -14,13 +14,26 @@ class IndexedEntityDabase {
 
       _initialDBSetup();
       _v2Migration();
+      _v3Migration();
     } else if (_dbVersion == 1) {
       debugPrint('Migrating DB to v2');
 
       _v2Migration();
+      _v3Migration();
+    } else if (_dbVersion == 2) {
+      _v3Migration();
     }
 
-    assert(_dbVersion == 2);
+    assert(_dbVersion == 3);
+
+    // Foreign keys need to be re-enable on every open (session)
+    // https://www.sqlite.org/foreignkeys.html#fk_enable
+    _database.execute('PRAGMA foreign_keys = ON');
+
+    // Ensure that the library used actually supports foreign keys
+    assert(
+      _database.select('PRAGMA foreign_keys').first.values.first as int == 1,
+    );
   }
 
   void _initialDBSetup() {
@@ -65,6 +78,20 @@ class IndexedEntityDabase {
     _database.execute(
       'UPDATE `metadata` SET `value` = ? WHERE `key` = ?',
       [2, 'version'],
+    );
+  }
+
+  void _v3Migration() {
+    final res = _database.select(
+      'DELETE FROM `index` WHERE NOT EXISTS (SELECT COUNT(*) FROM `entity` WHERE `entity`.`type` = type AND `entity`.`key` = entity) RETURNING `index`.`type`',
+    );
+    if (res.isNotEmpty) {
+      debugPrint('Cleaned up ${res.length} unused indices');
+    }
+
+    _database.execute(
+      'UPDATE `metadata` SET `value` = ? WHERE `key` = ?',
+      [3, 'version'],
     );
   }
 

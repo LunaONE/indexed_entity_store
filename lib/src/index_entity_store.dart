@@ -268,6 +268,7 @@ class IndexedEntityStore<T, K> {
       _entityInsertStatement.execute(
         [_entityKey, _connector.getPrimaryKey(e), _connector.serialize(e)],
       );
+      _assertNoMoreIndexEntries(_connector.getPrimaryKey(e));
 
       _updateIndexInternal(e);
 
@@ -311,19 +312,12 @@ class IndexedEntityStore<T, K> {
     _handleUpdate(keys);
   }
 
-  late final _deleteIndexStatement = _database.prepare(
-    'DELETE FROM `index` WHERE `type` = ? AND `entity` = ?',
-    persistent: true,
-  );
-
   late final _insertIndexStatement = _database.prepare(
     'INSERT INTO `index` (`type`, `entity`, `field`, `value`) VALUES (?, ?, ?, ?)',
     persistent: true,
   );
 
   void _updateIndexInternal(T e) {
-    _deleteIndexStatement.execute([_entityKey, _connector.getPrimaryKey(e)]);
-
     for (final indexColumn in _indexColumns._indexColumns.values) {
       _insertIndexStatement.execute(
         [
@@ -376,9 +370,20 @@ class IndexedEntityStore<T, K> {
         'DELETE FROM `entity` WHERE `type` = ? AND `key` = ?',
         [_entityKey, key],
       );
+
+      _assertNoMoreIndexEntries(key);
     }
 
     _handleUpdate(keys);
+  }
+
+  void _assertNoMoreIndexEntries(K key) {
+    assert(
+      _database.select(
+        'SELECT * FROM `index` WHERE `type` = ? and `entity` = ?',
+        [_entityKey, key],
+      ).isEmpty,
+    );
   }
 
   void _ensureIndexIsUpToDate() {
