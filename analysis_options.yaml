@@ -9,7 +9,7 @@ analyzer:
     always_declare_return_types: error
     always_put_required_named_parameters_first: error
     always_require_non_null_named_parameters: error
-    # Disabled due to the usage in "hand-rolled" from JSON, will be removed once we can make use of the JSON macro in tests & the example
+    # Disabled due to the usage in manual `fromJSON` implementations, will be removed once we can make use of the JSON macro in tests & the example
     argument_type_not_assignable: ignore
     avoid_bool_literals_in_conditional_expressions: error
     avoid_catching_errors: error
