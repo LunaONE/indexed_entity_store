@@ -21,7 +21,7 @@ class _AndQuery extends Query {
   final Query second;
 
   @override
-  (String, List) _entityKeysQuery() {
+  (String, List<dynamic>) _entityKeysQuery() {
     return (
       ' ${first._entityKeysQuery().$1} INTERSECT ${second._entityKeysQuery().$1} ',
       [...first._entityKeysQuery().$2, ...second._entityKeysQuery().$2],
@@ -36,7 +36,7 @@ class _OrQuery extends Query {
   final Query second;
 
   @override
-  (String, List) _entityKeysQuery() {
+  (String, List<dynamic>) _entityKeysQuery() {
     return (
       ' ${first._entityKeysQuery().$1} UNION ${second._entityKeysQuery().$1} ',
       [...first._entityKeysQuery().$2, ...second._entityKeysQuery().$2],
@@ -52,7 +52,7 @@ class _EqualQuery extends Query {
   final dynamic value;
 
   @override
-  (String, List) _entityKeysQuery() {
+  (String, List<dynamic>) _entityKeysQuery() {
     if (this.value == null) {
       return (
         'SELECT `entity` FROM `index` WHERE `type` = ? AND `field` = ? AND `value` IS NULL',
@@ -85,7 +85,7 @@ class _GreaterThanQuery extends Query {
   final dynamic value;
 
   @override
-  (String, List) _entityKeysQuery() {
+  (String, List<dynamic>) _entityKeysQuery() {
     final value = this.value is DateTime
         ? (this.value as DateTime).microsecondsSinceEpoch
         : this.value;
@@ -111,7 +111,7 @@ class _LessThanQuery extends Query {
   final dynamic value;
 
   @override
-  (String, List) _entityKeysQuery() {
+  (String, List<dynamic>) _entityKeysQuery() {
     final value = this.value is DateTime
         ? (this.value as DateTime).microsecondsSinceEpoch
         : this.value;
@@ -137,10 +137,10 @@ class _ContainsStringQuery extends Query {
   final bool caseInsensitive;
 
   @override
-  (String, List) _entityKeysQuery() {
+  (String, List<dynamic>) _entityKeysQuery() {
     if (caseInsensitive) {
       return (
-        "SELECT `entity` FROM `index` WHERE `type` = ? AND `field` = ? AND `value` LIKE ?",
+        'SELECT `entity` FROM `index` WHERE `type` = ? AND `field` = ? AND `value` LIKE ?',
         [
           entity,
           field,
@@ -150,7 +150,7 @@ class _ContainsStringQuery extends Query {
     }
 
     return (
-      "SELECT `entity` FROM `index` WHERE `type` = ? AND `field` = ? AND `value` GLOB ?",
+      'SELECT `entity` FROM `index` WHERE `type` = ? AND `field` = ? AND `value` GLOB ?',
       [
         entity,
         field,

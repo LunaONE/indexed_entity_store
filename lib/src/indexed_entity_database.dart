@@ -3,7 +3,9 @@ import 'package:indexed_entity_store/indexed_entity_store.dart';
 import 'package:sqlite3/sqlite3.dart';
 
 class IndexedEntityDabase {
-  final Database _database;
+  factory IndexedEntityDabase.open(String path) {
+    return IndexedEntityDabase._(path);
+  }
 
   IndexedEntityDabase._(String path) : _database = sqlite3.open(path) {
     final res = _database.select(
@@ -35,6 +37,8 @@ class IndexedEntityDabase {
       _database.select('PRAGMA foreign_keys').first.values.first as int == 1,
     );
   }
+
+  final Database _database;
 
   void _initialDBSetup() {
     _database.execute('PRAGMA foreign_keys = ON');
@@ -95,10 +99,6 @@ class IndexedEntityDabase {
     );
   }
 
-  factory IndexedEntityDabase.open(String path) {
-    return IndexedEntityDabase._(path);
-  }
-
   IndexedEntityStore<T, K> entityStore<T, K, S>(
     IndexedEntityConnector<T, K, S> connector,
   ) {
@@ -110,7 +110,7 @@ class IndexedEntityDabase {
     );
   }
 
-  dispose() {
+  void dispose() {
     _database.dispose();
   }
 }

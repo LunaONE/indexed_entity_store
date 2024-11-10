@@ -41,50 +41,62 @@ void main() {
     );
 
     expect(
-        fooStore.queryOnce(where: (cols) => cols['b'].equals(2)), hasLength(1));
-    expect(
-        fooStore.queryOnce(where: (cols) => cols['b'].equals(4)), hasLength(0));
-
-    expect(
-      fooStore.queryOnce(
-          where: (cols) => cols['a'].equals('a') & cols['b'].equals(2)),
+      fooStore.queryOnce(where: (cols) => cols['b'].equals(2)),
       hasLength(1),
     );
     expect(
-      fooStore.queryOnce(
-          where: (cols) => cols['a'].equals('b') & cols['b'].equals(2)),
-      isEmpty,
-    );
-    expect(
-      fooStore.queryOnce(
-          where: (cols) => cols['a'].equals('a') & cols['b'].equals(3)),
-      isEmpty,
-    );
-    expect(
-      fooStore.queryOnce(
-          where: (cols) => cols['a'].equals('b') & cols['b'].equals(3)),
-      isEmpty,
+      fooStore.queryOnce(where: (cols) => cols['b'].equals(4)),
+      hasLength(0),
     );
 
     expect(
       fooStore.queryOnce(
-          where: (cols) => cols['a'].equals('a') | cols['b'].equals(3)),
+        where: (cols) => cols['a'].equals('a') & cols['b'].equals(2),
+      ),
       hasLength(1),
     );
     expect(
       fooStore.queryOnce(
-          where: (cols) => cols['a'].equals('b') | cols['b'].equals(2)),
+        where: (cols) => cols['a'].equals('b') & cols['b'].equals(2),
+      ),
+      isEmpty,
+    );
+    expect(
+      fooStore.queryOnce(
+        where: (cols) => cols['a'].equals('a') & cols['b'].equals(3),
+      ),
+      isEmpty,
+    );
+    expect(
+      fooStore.queryOnce(
+        where: (cols) => cols['a'].equals('b') & cols['b'].equals(3),
+      ),
+      isEmpty,
+    );
+
+    expect(
+      fooStore.queryOnce(
+        where: (cols) => cols['a'].equals('a') | cols['b'].equals(3),
+      ),
       hasLength(1),
     );
     expect(
       fooStore.queryOnce(
-          where: (cols) => cols['a'].equals('b') | cols['b'].equals(3)),
+        where: (cols) => cols['a'].equals('b') | cols['b'].equals(2),
+      ),
+      hasLength(1),
+    );
+    expect(
+      fooStore.queryOnce(
+        where: (cols) => cols['a'].equals('b') | cols['b'].equals(3),
+      ),
       isEmpty,
     );
 
     expect(
       () => fooStore.queryOnce(
-          where: (cols) => cols['does_not_exist'].equals('b')),
+        where: (cols) => cols['does_not_exist'].equals('b'),
+      ),
       throwsException,
     );
 
@@ -94,8 +106,10 @@ void main() {
     );
 
     expect(fooStore.queryOnce(), hasLength(2));
-    expect(fooStore.queryOnce(where: (cols) => cols['a'].equals('a')),
-        hasLength(2));
+    expect(
+      fooStore.queryOnce(where: (cols) => cols['a'].equals('a')),
+      hasLength(2),
+    );
 
     // delete initial
     fooStore.delete(key: 99);
@@ -107,7 +121,7 @@ void main() {
 
     db.dispose();
 
-    File(path).delete();
+    File(path).deleteSync();
   });
 
   test(
@@ -182,7 +196,7 @@ void main() {
         );
       }
 
-      File(path).delete();
+      File(path).deleteSync();
     },
   );
 
@@ -336,7 +350,7 @@ void main() {
           shortValues,
           [
             [],
-            [isA<_ValueWrapper>().having((w) => w.value, 'value', 'one')]
+            [isA<_ValueWrapper>().having((w) => w.value, 'value', 'one')],
           ],
         );
       }
@@ -360,7 +374,7 @@ void main() {
             [isA<_ValueWrapper>().having((w) => w.value, 'value', 'one')],
             [
               isA<_ValueWrapper>().having((w) => w.value, 'value', 'one'),
-              isA<_ValueWrapper>().having((w) => w.value, 'value', 'two')
+              isA<_ValueWrapper>().having((w) => w.value, 'value', 'two'),
             ],
           ],
         );
@@ -385,7 +399,7 @@ void main() {
             [isA<_ValueWrapper>().having((w) => w.value, 'value', 'one')],
             [
               isA<_ValueWrapper>().having((w) => w.value, 'value', 'one'),
-              isA<_ValueWrapper>().having((w) => w.value, 'value', 'two')
+              isA<_ValueWrapper>().having((w) => w.value, 'value', 'two'),
             ],
           ],
         );
@@ -410,7 +424,7 @@ void main() {
             [isA<_ValueWrapper>().having((w) => w.value, 'value', 'one')],
             [
               isA<_ValueWrapper>().having((w) => w.value, 'value', 'one'),
-              isA<_ValueWrapper>().having((w) => w.value, 'value', 'two')
+              isA<_ValueWrapper>().having((w) => w.value, 'value', 'two'),
             ],
           ],
         );
@@ -436,11 +450,11 @@ void main() {
             [isA<_ValueWrapper>().having((w) => w.value, 'value', 'one')],
             [
               isA<_ValueWrapper>().having((w) => w.value, 'value', 'one'),
-              isA<_ValueWrapper>().having((w) => w.value, 'value', 'two')
+              isA<_ValueWrapper>().having((w) => w.value, 'value', 'two'),
             ],
             [
               isA<_ValueWrapper>().having((w) => w.value, 'value', 'eins'),
-              isA<_ValueWrapper>().having((w) => w.value, 'value', 'two')
+              isA<_ValueWrapper>().having((w) => w.value, 'value', 'two'),
             ],
           ],
         );
@@ -795,7 +809,8 @@ void main() {
     );
     expect(
       store.queryOnce(
-          where: (cols) => cols['dateTimeOpt'].lessThanOrEqual(now)),
+        where: (cols) => cols['dateTimeOpt'].lessThanOrEqual(now),
+      ),
       isEmpty,
     );
     expect(
@@ -804,13 +819,16 @@ void main() {
     );
     expect(
       store.queryOnce(
-          where: (cols) => cols['dateTimeOpt'].greaterThanOrEqual(now)),
+        where: (cols) => cols['dateTimeOpt'].greaterThanOrEqual(now),
+      ),
       isEmpty,
     );
 
     /// Numeric
-    expect(store.queryOnce(where: (cols) => cols['float'].equals(1000)),
-        hasLength(1));
+    expect(
+      store.queryOnce(where: (cols) => cols['float'].equals(1000)),
+      hasLength(1),
+    );
     expect(
       store.queryOnce(where: (cols) => cols['float'].greaterThan(1000)),
       isEmpty,
@@ -821,7 +839,8 @@ void main() {
     );
     expect(
       store.queryOnce(
-          where: (cols) => cols['float'].greaterThanOrEqual(1000.0)),
+        where: (cols) => cols['float'].greaterThanOrEqual(1000.0),
+      ),
       hasLength(1),
     );
 
@@ -879,7 +898,7 @@ void main() {
 
     final indexedEntityConnector = IndexedEntityConnector<int, String, String>(
       entityKey: 'indexed_entity',
-      getPrimaryKey: (i) => "$i",
+      getPrimaryKey: (i) => '$i',
       getIndices: (index) {
         index((e) => e, as: 'value');
       },
@@ -1264,19 +1283,6 @@ final fooConnectorWithIndexOnBAndC =
 );
 
 class _AllSupportedIndexTypes {
-  final String string;
-  final String? stringOpt;
-  final num number;
-  final num? numberOpt;
-  final int integer;
-  final int? integerOpt;
-  final double float;
-  final double? floatOpt;
-  final bool boolean;
-  final bool? booleanOpt;
-  final DateTime dateTime;
-  final DateTime? dateTimeOpt;
-
   _AllSupportedIndexTypes({
     required this.string,
     required this.stringOpt,
@@ -1321,6 +1327,19 @@ class _AllSupportedIndexTypes {
       dateTimeOpt: dateTimeOpt,
     );
   }
+
+  final String string;
+  final String? stringOpt;
+  final num number;
+  final num? numberOpt;
+  final int integer;
+  final int? integerOpt;
+  final double float;
+  final double? floatOpt;
+  final bool boolean;
+  final bool? booleanOpt;
+  final DateTime dateTime;
+  final DateTime? dateTimeOpt;
 
   Map<String, dynamic> toJSON() {
     return {

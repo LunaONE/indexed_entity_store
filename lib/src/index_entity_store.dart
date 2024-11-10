@@ -41,9 +41,9 @@ class IndexedEntityStore<T, K> {
 
   String get _entityKey => _connector.entityKey;
 
-  final Map<K, List<QueryResultMapping>> _singleEntityResults = {};
+  final Map<K, List<QueryResultMapping<dynamic>>> _singleEntityResults = {};
 
-  final List<QueryResultMapping> _entityResults = [];
+  final List<QueryResultMapping<dynamic>> _entityResults = [];
 
   @visibleForTesting
   int get subscriptionCount {
@@ -187,7 +187,7 @@ class IndexedEntityStore<T, K> {
       if (whereClause != null) ' AND `entity`.`key` IN ( ${whereClause.$1} ) ',
       if (orderBy != null)
         'AND `index`.`field` = ? ORDER BY `index`.`value` ${orderBy.$2 == SortOrder.asc ? 'ASC' : 'DESC'}',
-      if (limit != null) ' LIMIT ?'
+      if (limit != null) ' LIMIT ?',
     ].join();
     final values = [
       _entityKey,
@@ -294,11 +294,13 @@ class IndexedEntityStore<T, K> {
     // TODO(tp): QueryBuilder? where,
     final bool? all,
   }) {
-    assert(entity != null ||
-        entities != null ||
-        key != null ||
-        keys != null ||
-        all != null);
+    assert(
+      entity != null ||
+          entities != null ||
+          key != null ||
+          keys != null ||
+          all != null,
+    );
     assert(
       all == null ||
           (entity == null && entities == null && key == null && keys == null),
@@ -325,7 +327,7 @@ class IndexedEntityStore<T, K> {
 
     _handleUpdate(
       {
-        for (final row in result) row['key']!,
+        for (final row in result) row['key']! as K,
       },
     );
   }
@@ -418,7 +420,8 @@ class IndexedEntityStore<T, K> {
           if (newValue.dbValues.length ==
                   mapping.$2._value.value.dbValues.length &&
               newValue.dbValues.indexed.every(
-                  (e) => mapping.$2._value.value.dbValues[e.$1] == e.$2)) {
+                (e) => mapping.$2._value.value.dbValues[e.$1] == e.$2,
+              )) {
             continue; // values already match
           }
 
