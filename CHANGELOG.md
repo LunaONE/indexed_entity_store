@@ -5,6 +5,9 @@
   * `get` is now `read` to be symmetric to write (but instead of entities it takes keys, of course)
   * `query` now takes an optional `where` parameter, so instead of `getAll()` you can now just use `query()` to get the same result
   * `delete` now bundles multiple ways to identify entities to delete, offering a simpler API surface for the overall store
+* Support foreign key (`referencing`) and `unique` constraints on indices
+  * With `referencing` one can ensure that the index's value points to an entityt with the same primary key in another store
+  * A `unique` index ensures that only one entity in the store uses the same value for that key
 
 ## 1.4.7
 

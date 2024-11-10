@@ -3,11 +3,20 @@ import 'package:indexed_entity_store/indexed_entity_store.dart';
 import 'package:sqlite3/sqlite3.dart';
 
 class IndexedEntityDabase {
-  factory IndexedEntityDabase.open(String path) {
-    return IndexedEntityDabase._(path);
+  factory IndexedEntityDabase.open(
+    String path, {
+    @visibleForTesting int targetSchemaVersion = 4,
+  }) {
+    return IndexedEntityDabase._(
+      path,
+      targetSchemaVersion: targetSchemaVersion,
+    );
   }
 
-  IndexedEntityDabase._(String path) : _database = sqlite3.open(path) {
+  IndexedEntityDabase._(
+    String path, {
+    required int targetSchemaVersion,
+  }) : _database = sqlite3.open(path) {
     final res = _database.select(
       "SELECT name FROM sqlite_master WHERE type='table' AND name='entity';",
     );
@@ -15,18 +24,21 @@ class IndexedEntityDabase {
       debugPrint('Creating new DB');
 
       _initialDBSetup();
-      _v2Migration();
-      _v3Migration();
-    } else if (_dbVersion == 1) {
-      debugPrint('Migrating DB to v2');
+    }
 
+    if (_dbVersion < targetSchemaVersion) {
       _v2Migration();
-      _v3Migration();
-    } else if (_dbVersion == 2) {
+    }
+
+    if (_dbVersion < targetSchemaVersion) {
       _v3Migration();
     }
 
-    assert(_dbVersion == 3);
+    if (_dbVersion < targetSchemaVersion) {
+      _v4Migration();
+    }
+
+    assert(_dbVersion == targetSchemaVersion);
 
     // Foreign keys need to be re-enable on every open (session)
     // https://www.sqlite.org/foreignkeys.html#fk_enable
@@ -96,6 +108,51 @@ class IndexedEntityDabase {
     _database.execute(
       'UPDATE `metadata` SET `value` = ? WHERE `key` = ?',
       [3, 'version'],
+    );
+  }
+
+  void _v4Migration() {
+    // New `index` table schema supporting unique and and foreign key constraints
+
+    _database.execute('DROP TABLE `index`');
+
+    _database.execute(
+      'CREATE TABLE `index` ( '
+      '  `type` TEXT NOT NULL, '
+      '  `entity` NOT NULL, '
+      '  `field` TEXT NOT NULL, '
+      '  `value`, '
+      '  `referenced_type` TEXT, '
+      '  `unique` BOOLEAN NOT NULL DEFAULT FALSE, '
+      '  FOREIGN KEY (`type`, `entity`) REFERENCES `entity` (`type`, `key`) ON DELETE CASCADE, '
+      '  FOREIGN KEY (`referenced_type`, `value`) REFERENCES `entity` (`type`, `key`), '
+      '  PRIMARY KEY ( `type`, `entity`, `field` )'
+      ')',
+    );
+
+    _database.execute(
+      'CREATE INDEX index_field_values '
+      'ON `index` ( `type`, `field`, `value` )',
+    );
+
+    // This index is needed to not pay a performance penalty for the new foreign key constraint (between entities)
+    // Otherwise the `insertMany` update duration would increase 5x (even without making use of the reference, passing `null`).
+    // With this index, even though it only tracks non-`null` references (which would be rare), overall insert performance stays the same as before.
+    _database.execute(
+      'CREATE INDEX index_field_values_FK '
+      'ON `index` ( `referenced_type`, `value` )'
+      'WHERE `referenced_type` IS NOT NULL ',
+    );
+
+    _database.execute(
+      'CREATE UNIQUE INDEX index_type_entity_field_unique_index '
+      'ON `index` ( `type`, `field`, `value` ) '
+      'WHERE `unique` = 1 ',
+    );
+
+    _database.execute(
+      'UPDATE `metadata` SET `value` = ? WHERE `key` = ?',
+      [4, 'version'],
     );
   }
 

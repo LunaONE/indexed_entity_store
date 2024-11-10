@@ -9,9 +9,13 @@ class IndexColumn<T /* entity type */, I /* index type */ > {
     required String entity,
     required String field,
     required I Function(T e) getIndexValue,
+    required String? referencedEntity,
+    required bool unique,
   })  : _entity = entity,
         _field = field,
-        _getIndexValueFunc = getIndexValue {
+        _getIndexValueFunc = getIndexValue,
+        _referencedEntity = referencedEntity,
+        _unique = unique {
     if (!_typeEqual<I, String>() &&
         !_typeEqual<I, String?>() &&
         !_typeEqual<I, num>() &&
@@ -28,6 +32,18 @@ class IndexColumn<T /* entity type */, I /* index type */ > {
         'Can not create index for field "$field", as type can not be asserted. Type is $I.',
       );
     }
+
+    if (referencedEntity != null &&
+        (_typeEqual<I, String?>() ||
+            _typeEqual<I, num?>() ||
+            _typeEqual<I, int?>() ||
+            _typeEqual<I, double?>() ||
+            _typeEqual<I, bool?>() ||
+            _typeEqual<I, DateTime?>())) {
+      throw Exception(
+        'Can not create index for field "$field" referencing "$referencedEntity" where the "value" is nullable. Type is $I.',
+      );
+    }
   }
 
   final String _entity;
@@ -35,6 +51,10 @@ class IndexColumn<T /* entity type */, I /* index type */ > {
   final String _field;
 
   final I Function(T e) _getIndexValueFunc;
+
+  final String? _referencedEntity;
+
+  final bool _unique;
 
   // Usually I, just for `DateTime` we have some special handling to support that out of the box (by converting to int)
   dynamic _getIndexValue(T e) {

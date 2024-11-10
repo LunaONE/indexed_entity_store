@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:indexed_entity_store/indexed_entity_store.dart';
 import 'package:sqlite3/sqlite3.dart';
 
+part 'index_collector.dart';
 part 'index_column.dart';
 part 'index_columns.dart';
 part 'query.dart';
@@ -268,7 +269,7 @@ class IndexedEntityStore<T, K> {
   }
 
   late final _insertIndexStatement = _database.prepare(
-    'INSERT INTO `index` (`type`, `entity`, `field`, `value`) VALUES (?, ?, ?, ?)',
+    'INSERT INTO `index` (`type`, `entity`, `field`, `value`, `referenced_type`, `unique`) VALUES (?, ?, ?, ?, ?, ?)',
     persistent: true,
   );
 
@@ -280,6 +281,8 @@ class IndexedEntityStore<T, K> {
           _connector.getPrimaryKey(e),
           indexColumn._field,
           indexColumn._getIndexValue(e),
+          indexColumn._referencedEntity,
+          indexColumn._unique,
         ],
       );
     }
@@ -366,25 +369,47 @@ class IndexedEntityStore<T, K> {
   }
 
   void _ensureIndexIsUpToDate() {
-    final currentlyIndexedFields = _database
-        .select(
-          'SELECT DISTINCT `field` FROM `index` WHERE `type` = ?',
-          [this._entityKey],
-        )
-        .map((r) => r['field'] as String)
-        .toSet();
+    final List<({String field, bool usesUnique, bool usesReference})>
+        currentDatabaseIndices = _database
+            .select(
+              'SELECT DISTINCT `field`, `unique` = 1 AS usesUnique, `referenced_type` IS NOT NULL AS usesReference FROM `index` WHERE `type` = ?',
+              [this._entityKey],
+            )
+            .map(
+              (row) => (
+                field: row['field'] as String,
+                usesUnique: row['usesUnique'] == 1,
+                usesReference: row['usesReference'] == 1,
+              ),
+            )
+            .toList();
 
-    final currentEntityIndexedFields = _indexColumns._indexColumns.keys.toSet();
+    var needsIndexUpdate = false;
+    if (currentDatabaseIndices.length != _indexColumns._indexColumns.length) {
+      needsIndexUpdate = true;
+    } else {
+      for (final storeIndex in _indexColumns._indexColumns.values) {
+        final databaseIndex = currentDatabaseIndices
+            .where(
+              (dbIndex) =>
+                  dbIndex.field == storeIndex._field &&
+                  dbIndex.usesReference ==
+                      (storeIndex._referencedEntity != null) &&
+                  dbIndex.usesUnique == storeIndex._unique,
+            )
+            .firstOrNull;
 
-    final missingFields =
-        currentEntityIndexedFields.difference(currentlyIndexedFields);
+        if (databaseIndex == null) {
+          debugPrint(
+            'Index "${storeIndex._field}" (referencing "${storeIndex._referencedEntity}", unique "${storeIndex._unique}") was not found in the database and will now be created.',
+          );
 
-    if (currentEntityIndexedFields.length != currentlyIndexedFields.length ||
-        missingFields.isNotEmpty) {
-      debugPrint(
-        'Need to update index as fields where changed or added',
-      );
+          needsIndexUpdate = true;
+        }
+      }
+    }
 
+    if (needsIndexUpdate) {
       try {
         _database.execute('BEGIN');
 
@@ -441,27 +466,6 @@ class IndexedEntityStore<T, K> {
 
       mapping.$2._value.value = newValue;
     }
-  }
-}
-
-// NOTE(tp): This is implemented as a `class` with `call` such that we can
-// correctly capture the index type `I` and forward that to `IndexColumn`
-class IndexCollector<T> {
-  IndexCollector._(this._entityKey);
-
-  final String _entityKey;
-
-  final _indices = <IndexColumn<T, dynamic>>[];
-
-  /// Adds a new index defined by the mapping [index] and stores it in [as]
-  void call<I>(I Function(T e) index, {required String as}) {
-    _indices.add(
-      IndexColumn<T, I>._(
-        entity: _entityKey,
-        field: as,
-        getIndexValue: index,
-      ),
-    );
   }
 }
 
