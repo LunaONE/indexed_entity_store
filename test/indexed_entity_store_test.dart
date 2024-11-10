@@ -170,11 +170,38 @@ void main() {
         db.dispose();
       }
 
-      // setup with a new connect, which requires an index update
+      // setup with a new connector, which requires an index update
       {
         final db = IndexedEntityDabase.open(path);
 
         final fooStore = db.entityStore(fooConnectorWithIndexOnBAndC);
+
+        expect(fooStore.queryOnce(), hasLength(1));
+        // old index is not longer supported
+        expect(
+          () => fooStore.queryOnce(where: (cols) => cols['a'].equals('A')),
+          throwsException,
+        );
+        expect(
+          fooStore.queryOnce(where: (cols) => cols['b'].equals(1002)),
+          hasLength(1),
+        );
+        expect(
+          fooStore.queryOnce(where: (cols) => cols['b'].equals(1002)),
+          hasLength(1),
+        );
+        expect(
+          fooStore.queryOnce(where: (cols) => cols['c'].equals(true)),
+          hasLength(1),
+        );
+      }
+
+      // setup with a new connector (with unique index on B), which requires an index update
+      {
+        final db = IndexedEntityDabase.open(path);
+
+        final fooStore =
+            db.entityStore(fooConnectorWithUniqueIndexOnBAndIndexOnC);
 
         expect(fooStore.queryOnce(), hasLength(1));
         // old index is not longer supported
@@ -1276,6 +1303,18 @@ final fooConnectorWithIndexOnBAndC =
   getPrimaryKey: fooConnector.getPrimaryKey,
   getIndices: (index) {
     index((e) => e.valueB + 1000, as: 'b'); // updated index B
+    index((e) => e.valueC, as: 'c');
+  },
+  serialize: fooConnector.serialize,
+  deserialize: fooConnector.deserialize,
+);
+
+final fooConnectorWithUniqueIndexOnBAndIndexOnC =
+    IndexedEntityConnector<_FooEntity, int, String>(
+  entityKey: fooConnector.entityKey,
+  getPrimaryKey: fooConnector.getPrimaryKey,
+  getIndices: (index) {
+    index((e) => e.valueB + 1000, as: 'b', unique: true); // updated index B
     index((e) => e.valueC, as: 'c');
   },
   serialize: fooConnector.serialize,
