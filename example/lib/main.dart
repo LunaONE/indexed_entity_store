@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:indexed_entity_store_example/src/examples/async_value_group_and_detail.dart';
 import 'package:indexed_entity_store_example/src/examples/binary_data_storage.dart';
+import 'package:indexed_entity_store_example/src/examples/disk_file_store/disk_file_storage_example.dart';
 import 'package:indexed_entity_store_example/src/examples/future_value_listenable_group_and_detail.dart';
 import 'package:indexed_entity_store_example/src/examples/simple_synchronous.dart';
 import 'package:path_provider/path_provider.dart';
@@ -47,6 +48,7 @@ class _ExampleSelectorState extends State<ExampleSelector> {
     '`Future<ValueSource<T>>`-based product list & detail view':
         AsynchronousGroupDetailExample(),
     'Binary data storage': BinaryDataStorageExample(),
+    'Disk-based file storage': DiskFileStorageExample(),
   };
 
   @override
