@@ -66,6 +66,7 @@ class IndexColumn<T /* entity type */, I /* index type */ > {
     return v;
   }
 
+  /// Returns a query matching index values which are equal to [value]
   // NOTE(tp): Parameters here are typed as `dynamic`, even though they must be `I`. This is done so we can throw a more detailed exeption instead of the default low-level `TypeError`
   Query equals(dynamic value) {
     if (value is int && I == double) {
@@ -85,6 +86,7 @@ class IndexColumn<T /* entity type */, I /* index type */ > {
     );
   }
 
+  /// Returns a query matching index values which are greater than [value]
   Query greaterThan(dynamic value) {
     if (value is int && I == double) {
       value = value.toDouble();
@@ -107,6 +109,7 @@ class IndexColumn<T /* entity type */, I /* index type */ > {
   //   return greaterThan(value);
   // }
 
+  /// Returns a query matching index values which are greater than or equal to [value]
   Query greaterThanOrEqual(dynamic value) {
     if (value is int && I == double) {
       value = value.toDouble();
@@ -132,6 +135,7 @@ class IndexColumn<T /* entity type */, I /* index type */ > {
   //   return greaterThanOrEqual(value);
   // }
 
+  /// Returns a query matching index values which are less than [value]
   Query lessThan(dynamic value) {
     if (value is int && I == double) {
       value = value.toDouble();
@@ -154,6 +158,7 @@ class IndexColumn<T /* entity type */, I /* index type */ > {
   //   return lessThan(value);
   // }
 
+  /// Returns a query matching index values which are less than or equal to [value]
   Query lessThanOrEqual(dynamic value) {
     if (value is int && I == double) {
       value = value.toDouble();
@@ -179,6 +184,9 @@ class IndexColumn<T /* entity type */, I /* index type */ > {
   //   return lessThanOrEqual(value);
   // }
 
+  /// Returns a query matching index values which contain [value]
+  ///
+  /// By default this uses a case-sensitive string comparison, but can be changed to be case-insensitive via [caseInsensitive].
   Query contains(dynamic value, {bool caseInsensitive = false}) {
     if (value is! String || value is! I) {
       throw Exception(
