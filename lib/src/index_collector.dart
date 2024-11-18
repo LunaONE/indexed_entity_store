@@ -1,5 +1,6 @@
 part of 'index_entity_store.dart';
 
+/// Creates an index column in the current store
 // NOTE(tp): This is implemented as a `class` with `call` such that we can
 // correctly capture the index type `I` and forward that to `IndexColumn`
 class IndexCollector<T> {

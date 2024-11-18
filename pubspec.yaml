@@ -1,6 +1,6 @@
 name: indexed_entity_store
 description: A fast, simple, and synchronous entity store for Flutter applications.
-version: 2.0.0-dev3
+version: 2.0.0
 repository: https://github.com/LunaONE/indexed_entity_store
 
 environment:
