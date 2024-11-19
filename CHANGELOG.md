@@ -1,3 +1,7 @@
+## 2.0.1
+
+* Add tests for internal schema migrations
+
 ## 2.0.0
 
 * Update method names

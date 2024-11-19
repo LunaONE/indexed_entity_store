@@ -15,6 +15,7 @@ class IndexedEntityDabase {
 
   IndexedEntityDabase._(
     String path, {
+    /// Up to which version the schema migrations should be run
     required int targetSchemaVersion,
   }) : _database = sqlite3.open(path) {
     final res = _database.select(
@@ -26,19 +27,19 @@ class IndexedEntityDabase {
       _initialDBSetup();
     }
 
-    if (_dbVersion < targetSchemaVersion) {
+    if (dbVersion < 2 && targetSchemaVersion >= 2) {
       _v2Migration();
     }
 
-    if (_dbVersion < targetSchemaVersion) {
+    if (dbVersion < 3 && targetSchemaVersion >= 3) {
       _v3Migration();
     }
 
-    if (_dbVersion < targetSchemaVersion) {
+    if (dbVersion < 4 && targetSchemaVersion >= 4) {
       _v4Migration();
     }
 
-    assert(_dbVersion == targetSchemaVersion);
+    assert(dbVersion == targetSchemaVersion);
 
     // Foreign keys need to be re-enable on every open (session)
     // https://www.sqlite.org/foreignkeys.html#fk_enable
@@ -80,7 +81,8 @@ class IndexedEntityDabase {
     );
   }
 
-  int get _dbVersion => _database.select(
+  @visibleForTesting
+  int get dbVersion => _database.select(
         'SELECT `value` FROM `metadata` WHERE `key` = ?',
         ['version'],
       ).single['value'] as int;
