@@ -241,28 +241,55 @@ class IndexedEntityStore<T, K> {
   /// Insert or update many entities in a single batch
   ///
   /// Notification for changes will only fire after all changes have been written (meaning queries will get a single update after all writes are finished)
-  void writeMany(Iterable<T> entities) {
+  void writeMany(
+    Iterable<T> entities, {
+    bool singleStatement = true,
+  }) {
     final keys = <K>{};
 
-    try {
-      _database.execute('BEGIN');
-      assert(_database.autocommit == false);
-
-      for (final e in entities) {
-        _entityInsertStatement.execute(
-          [_entityKey, _connector.getPrimaryKey(e), _connector.serialize(e)],
-        );
-
-        _updateIndexInternal(e);
-
-        keys.add(_connector.getPrimaryKey(e));
+    if (singleStatement) {
+      if (entities.isEmpty) {
+        return;
       }
 
-      _database.execute('COMMIT');
-    } catch (e) {
-      _database.execute('ROLLBACK');
+      _database.execute(
+        [
+          'REPLACE INTO `entity` (`type`, `key`, `value`) '
+              ' VALUES (?1, ?, ?)',
+          // Add additional entry values for each further parameter
+          ', (?1, ?, ?)' * (entities.length - 1),
+        ].join(' '),
+        [
+          _entityKey,
+          for (final e in entities) ...[
+            _connector.getPrimaryKey(e),
+            _connector.serialize(e),
+          ],
+        ],
+      );
+    } else {
+      // transaction variant
 
-      rethrow;
+      try {
+        _database.execute('BEGIN');
+        assert(_database.autocommit == false);
+
+        for (final e in entities) {
+          _entityInsertStatement.execute(
+            [_entityKey, _connector.getPrimaryKey(e), _connector.serialize(e)],
+          );
+
+          _updateIndexInternal(e);
+
+          keys.add(_connector.getPrimaryKey(e));
+        }
+
+        _database.execute('COMMIT');
+      } catch (e) {
+        _database.execute('ROLLBACK');
+
+        rethrow;
+      }
     }
 
     _handleUpdate(keys);

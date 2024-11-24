@@ -1,6 +1,8 @@
 ## 2.0.1
 
 * Add tests for internal schema migrations
+* Speed up `writeMany` by defaulting to use a single statement for all inserts (as opposed to a single transactions with many individual inserts)
+  * One can revert to the previous behavior by setting `singleStatement: false` in the call
 
 ## 2.0.0
 

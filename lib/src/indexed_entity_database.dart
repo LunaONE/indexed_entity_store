@@ -138,7 +138,7 @@ class IndexedEntityDabase {
     );
 
     // This index is needed to not pay a performance penalty for the new foreign key constraint (between entities)
-    // Otherwise the `insertMany` update duration would increase 5x (even without making use of the reference, passing `null`).
+    // Otherwise the `writeMany` update duration would increase 5x (even without making use of the reference, passing `null`).
     // With this index, even though it only tracks non-`null` references (which would be rare), overall insert performance stays the same as before.
     _database.execute(
       'CREATE INDEX index_field_values_FK '
