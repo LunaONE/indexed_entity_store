@@ -1173,6 +1173,71 @@ void main() {
     expect(listSubscription.value, isEmpty);
     expect(fooStore.queryOnce(), isEmpty);
   });
+
+  test(
+    'delete(where: )',
+    () async {
+      final path =
+          '/tmp/index_entity_store_test_${FlutterTimeline.now}.sqlite3';
+
+      final db = IndexedEntityDabase.open(path);
+
+      final valueWrappingConnector =
+          IndexedEntityConnector<_ValueWrapper, int, String>(
+        entityKey: 'value_wrapper',
+        getPrimaryKey: (f) => f.key,
+        getIndices: (index) {
+          index((e) => e.value, as: 'value');
+        },
+        serialize: (f) => jsonEncode(f.toJSON()),
+        deserialize: (s) => _ValueWrapper.fromJSON(
+          jsonDecode(s) as Map<String, dynamic>,
+        ),
+      );
+
+      final valueStore = db.entityStore(valueWrappingConnector);
+
+      valueStore.writeMany(
+        [
+          for (var i = 0; i < 10; i++)
+            _ValueWrapper(FlutterTimeline.now + i, '$i'),
+        ],
+        singleStatement: false,
+      );
+
+      final allEntities = valueStore.query();
+      final entityValue2 = valueStore.single(
+        where: (cols) => cols['value'].equals('2'),
+      );
+
+      expect(allEntities.value, hasLength(10));
+      expect(entityValue2.value, isNotNull);
+
+      // no match
+      valueStore.delete(where: (cols) => cols['value'].equals('11'));
+      expect(allEntities.value, hasLength(10));
+      expect(entityValue2.value, isNotNull);
+
+      // no match for complete query
+      valueStore.delete(
+        where: (cols) => cols['value'].equals('11') & cols['value'].equals('2'),
+      );
+      expect(allEntities.value, hasLength(10));
+      expect(entityValue2.value, isNotNull);
+
+      // match delete 2 entries
+      valueStore.delete(
+        where: (cols) => cols['value'].equals('2') | cols['value'].equals('7'),
+      );
+      expect(allEntities.value, hasLength(8));
+      expect(entityValue2.value, isNull);
+
+      allEntities.dispose();
+      entityValue2.dispose();
+
+      expect(valueStore.subscriptionCount, 0);
+    },
+  );
 }
 
 class _FooEntity {
@@ -1398,5 +1463,10 @@ class _ValueWrapper {
       json['key'],
       json['value'],
     );
+  }
+
+  @override
+  String toString() {
+    return '_ValueWrapper($key, $value)';
   }
 }

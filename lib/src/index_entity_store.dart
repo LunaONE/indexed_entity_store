@@ -321,7 +321,7 @@ class IndexedEntityStore<T, K> {
     final Iterable<T>? entities,
     final K? key,
     final Iterable<K>? keys,
-    // TODO(tp): QueryBuilder? where,
+    final QueryBuilder? where,
     final bool? all,
   }) {
     assert(
@@ -329,22 +329,35 @@ class IndexedEntityStore<T, K> {
           entities != null ||
           key != null ||
           keys != null ||
+          where != null ||
           all != null,
     );
     assert(
       all == null ||
-          (entity == null && entities == null && key == null && keys == null),
+          (entity == null &&
+              entities == null &&
+              key == null &&
+              keys == null &&
+              where == null),
     );
 
     if (all == true) {
       _deleteAll();
     } else {
-      _deleteManyByKey({
+      final combinedKeys = {
         if (entity != null) _connector.getPrimaryKey(entity),
         ...?entities?.map(_connector.getPrimaryKey),
         if (key != null) key,
         ...?keys,
-      });
+      };
+
+      if (combinedKeys.isNotEmpty) {
+        _deleteManyByKey(combinedKeys);
+      }
+
+      if (where != null) {
+        _deleteWhere(where);
+      }
     }
   }
 
@@ -375,6 +388,40 @@ class IndexedEntityStore<T, K> {
 
         _assertNoMoreIndexEntries(key);
       }
+
+      _database.execute('COMMIT');
+    } catch (e) {
+      _database.execute('ROLLBACK');
+
+      rethrow;
+    }
+
+    _handleUpdate(keys);
+  }
+
+  /// Deletes entities matching the query
+  void _deleteWhere(QueryBuilder query) {
+    final Set<K> keys;
+
+    try {
+      _database.execute('BEGIN');
+
+      final whereClause = query(_indexColumns)._entityKeysQuery();
+
+      final result = _database.select(
+        'DELETE FROM `entity` '
+        ' WHERE `type` = ? '
+        ' AND `entity`.`key` IN ( ${whereClause.$1} ) '
+        ' RETURNING `key`',
+        [
+          _entityKey,
+          ...whereClause.$2,
+        ],
+      );
+
+      keys = {
+        for (final row in result) row['key']! as K,
+      };
 
       _database.execute('COMMIT');
     } catch (e) {
