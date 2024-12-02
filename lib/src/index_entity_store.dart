@@ -238,78 +238,32 @@ class IndexedEntityStore<T, K> {
     _handleUpdate({_connector.getPrimaryKey(e)});
   }
 
-  /// Insert or update many entities in a single batch
+  /// Insert or update many entities in a single transaction
   ///
   /// Notification for changes will only fire after all changes have been written (meaning queries will get a single update after all writes are finished)
-  void writeMany(
-    Iterable<T> entities, {
-    bool singleStatement = true,
-  }) {
+  void writeMany(Iterable<T> entities) {
     final keys = <K>{};
 
-    final sw = Stopwatch()..start();
+    try {
+      _database.execute('BEGIN');
+      assert(_database.autocommit == false);
 
-    if (singleStatement) {
-      if (entities.isEmpty) {
-        return;
-      }
-
-      try {
-        _database.execute('BEGIN');
-
-        _database.execute(
-          [
-            'REPLACE INTO `entity` (`type`, `key`, `value`) '
-                ' VALUES (?1, ?, ?)',
-            // Add additional entry values for each further parameter
-            ', (?1, ?, ?)' * (entities.length - 1),
-          ].join(' '),
-          [
-            _entityKey,
-            for (final e in entities) ...[
-              _connector.getPrimaryKey(e),
-              _connector.serialize(e),
-            ],
-          ],
+      for (final e in entities) {
+        _entityInsertStatement.execute(
+          [_entityKey, _connector.getPrimaryKey(e), _connector.serialize(e)],
         );
 
-        _updateIndexInternalSingleStatement(entities);
+        _updateIndexInternal(e);
 
-        _database.execute('COMMIT');
-      } catch (e) {
-        _database.execute('ROLLBACK');
-
-        rethrow;
+        keys.add(_connector.getPrimaryKey(e));
       }
 
-      keys.addAll(entities.map(_connector.getPrimaryKey));
-    } else {
-      // transaction variant
+      _database.execute('COMMIT');
+    } catch (e) {
+      _database.execute('ROLLBACK');
 
-      try {
-        _database.execute('BEGIN');
-        assert(_database.autocommit == false);
-
-        for (final e in entities) {
-          _entityInsertStatement.execute(
-            [_entityKey, _connector.getPrimaryKey(e), _connector.serialize(e)],
-          );
-
-          _updateIndexInternal(e);
-
-          keys.add(_connector.getPrimaryKey(e));
-        }
-
-        _database.execute('COMMIT');
-      } catch (e) {
-        _database.execute('ROLLBACK');
-
-        rethrow;
-      }
+      rethrow;
     }
-
-    print(
-        '$singleStatement ${(sw.elapsedMicroseconds / 1000).toStringAsFixed(2)}ms');
 
     _handleUpdate(keys);
   }
@@ -332,33 +286,6 @@ class IndexedEntityStore<T, K> {
         ],
       );
     }
-  }
-
-  void _updateIndexInternalSingleStatement(Iterable<T> entities) {
-    if (_indexColumns._indexColumns.values.isEmpty) {
-      return;
-    }
-
-    _database.execute(
-      [
-        'INSERT INTO `index` (`type`, `entity`, `field`, `value`, `referenced_type`, `unique`) '
-            ' VALUES (?1, ?, ?, ?, ?, ?)',
-        // Add additional entry values for each further entity
-        ', (?1, ?, ?, ?, ?, ?)' *
-            (entities.length * _indexColumns._indexColumns.values.length - 1),
-      ].join(' '),
-      [
-        _entityKey,
-        for (final indexColumn in _indexColumns._indexColumns.values)
-          for (final e in entities) ...[
-            _connector.getPrimaryKey(e),
-            indexColumn._field,
-            indexColumn._getIndexValue(e),
-            indexColumn._referencedEntity,
-            indexColumn._unique,
-          ],
-      ],
-    );
   }
 
   /// Delete the specified entries
