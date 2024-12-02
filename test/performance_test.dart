@@ -9,8 +9,6 @@ import 'package:indexed_entity_store/indexed_entity_store.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
-  const singleStatement = true;
-
   test(
     'Performance',
     () async {
@@ -54,7 +52,6 @@ void main() {
             for (var i = batchSize + 1; i <= batchSize * 2; i++)
               _FooEntity(id: i, valueA: 'a', valueB: 1, valueC: true),
           ],
-          singleStatement: singleStatement,
         );
 
         debugPrint(
@@ -71,7 +68,6 @@ void main() {
             for (var i = batchSize + 1; i <= batchSize * 2; i++)
               _FooEntity(id: i, valueA: 'aaaaaa', valueB: 111111, valueC: true),
           ],
-          singleStatement: singleStatement,
         );
 
         debugPrint(
@@ -80,6 +76,10 @@ void main() {
       }
 
       expect(fooStore.queryOnce(), hasLength(batchSize * 2 + 1));
+      expect(
+        fooStore.queryOnce(where: (cols) => cols['b'].greaterThan(0)),
+        hasLength(batchSize * 2 + 1),
+      );
     },
     skip: !Platform.isMacOS, // only run locally for now
   );
