@@ -315,7 +315,7 @@ void main() {
 
   test(
     'Reactive queries, check against duplicate updates',
-    () async {
+    () {
       final path =
           '/tmp/index_entity_store_test_${FlutterTimeline.now}.sqlite3';
 
@@ -1197,13 +1197,10 @@ void main() {
 
       final valueStore = db.entityStore(valueWrappingConnector);
 
-      valueStore.writeMany(
-        [
-          for (var i = 0; i < 10; i++)
-            _ValueWrapper(FlutterTimeline.now + i, '$i'),
-        ],
-        singleStatement: false,
-      );
+      valueStore.writeMany([
+        for (var i = 0; i < 10; i++)
+          _ValueWrapper(FlutterTimeline.now + i, '$i'),
+      ]);
 
       final allEntities = valueStore.query();
       final entityValue2 = valueStore.single(
@@ -1238,6 +1235,81 @@ void main() {
       expect(valueStore.subscriptionCount, 0);
     },
   );
+
+  for (final singleStatement in [true, false]) {
+    test(
+      'writeMany(singleStatement: $singleStatement)',
+      () {
+        final path =
+            '/tmp/index_entity_store_test_${FlutterTimeline.now}.sqlite3';
+
+        final db = IndexedEntityDabase.open(path);
+
+        final valueWrappingConnector =
+            IndexedEntityConnector<_IntValueWrapper, int, String>(
+          entityKey: 'value_wrapper',
+          getPrimaryKey: (f) => f.key,
+          getIndices: (index) {
+            index((e) => e.value % 2 == 0, as: 'even');
+            index((e) => e.batch, as: 'batch');
+          },
+          serialize: (f) => jsonEncode(f.toJSON()),
+          deserialize: (s) => _IntValueWrapper.fromJSON(
+            jsonDecode(s) as Map<String, dynamic>,
+          ),
+        );
+
+        final store = db.entityStore(valueWrappingConnector);
+
+        final allEntities = store.query();
+        final evenEntities = store.query(
+          where: (cols) => cols['even'].equals(true),
+        );
+        final batch1Entities = store.query(
+          where: (cols) => cols['batch'].equals(1),
+        );
+        final batch2Entities = store.query(
+          where: (cols) => cols['batch'].equals(2),
+        );
+
+        // writeMany
+        {
+          final entities = [
+            for (var i = 0; i < 1000; i++) _IntValueWrapper(i, i, 1),
+          ];
+
+          store.writeMany(entities, singleStatement: singleStatement);
+        }
+
+        expect(allEntities.value, hasLength(1000));
+        expect(evenEntities.value, hasLength(500));
+        expect(batch1Entities.value, hasLength(1000));
+        expect(batch2Entities.value, isEmpty);
+
+        // writeMany again (in-place updates, index update with new batch ID)
+        {
+          final entities = [
+            for (var i = 0; i < 1000; i++) _IntValueWrapper(i, i, 2),
+          ];
+
+          store.writeMany(entities, singleStatement: singleStatement);
+        }
+
+        expect(allEntities.value, hasLength(1000));
+        expect(evenEntities.value, hasLength(500));
+        expect(evenEntities.value.first.batch, 2); // value got updated
+        expect(batch1Entities.value, isEmpty);
+        expect(batch2Entities.value, hasLength(1000));
+
+        allEntities.dispose();
+        evenEntities.dispose();
+        batch1Entities.dispose();
+        batch2Entities.dispose();
+
+        db.dispose();
+      },
+    );
+  }
 }
 
 class _FooEntity {
@@ -1468,5 +1540,38 @@ class _ValueWrapper {
   @override
   String toString() {
     return '_ValueWrapper($key, $value)';
+  }
+}
+
+class _IntValueWrapper {
+  _IntValueWrapper(
+    this.key,
+    this.value,
+    this.batch,
+  );
+
+  final int key;
+  final int value;
+  final int batch;
+
+  Map<String, dynamic> toJSON() {
+    return {
+      'key': key,
+      'value': value,
+      'batch': batch,
+    };
+  }
+
+  static _IntValueWrapper fromJSON(Map<String, dynamic> json) {
+    return _IntValueWrapper(
+      json['key'],
+      json['value'],
+      json['batch'],
+    );
+  }
+
+  @override
+  String toString() {
+    return '_IntValueWrapper($key, $value, $batch)';
   }
 }

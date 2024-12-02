@@ -247,26 +247,42 @@ class IndexedEntityStore<T, K> {
   }) {
     final keys = <K>{};
 
+    final sw = Stopwatch()..start();
+
     if (singleStatement) {
       if (entities.isEmpty) {
         return;
       }
 
-      _database.execute(
-        [
-          'REPLACE INTO `entity` (`type`, `key`, `value`) '
-              ' VALUES (?1, ?, ?)',
-          // Add additional entry values for each further parameter
-          ', (?1, ?, ?)' * (entities.length - 1),
-        ].join(' '),
-        [
-          _entityKey,
-          for (final e in entities) ...[
-            _connector.getPrimaryKey(e),
-            _connector.serialize(e),
+      try {
+        _database.execute('BEGIN');
+
+        _database.execute(
+          [
+            'REPLACE INTO `entity` (`type`, `key`, `value`) '
+                ' VALUES (?1, ?, ?)',
+            // Add additional entry values for each further parameter
+            ', (?1, ?, ?)' * (entities.length - 1),
+          ].join(' '),
+          [
+            _entityKey,
+            for (final e in entities) ...[
+              _connector.getPrimaryKey(e),
+              _connector.serialize(e),
+            ],
           ],
-        ],
-      );
+        );
+
+        _updateIndexInternalSingleStatement(entities);
+
+        _database.execute('COMMIT');
+      } catch (e) {
+        _database.execute('ROLLBACK');
+
+        rethrow;
+      }
+
+      keys.addAll(entities.map(_connector.getPrimaryKey));
     } else {
       // transaction variant
 
@@ -292,6 +308,9 @@ class IndexedEntityStore<T, K> {
       }
     }
 
+    print(
+        '$singleStatement ${(sw.elapsedMicroseconds / 1000).toStringAsFixed(2)}ms');
+
     _handleUpdate(keys);
   }
 
@@ -313,6 +332,33 @@ class IndexedEntityStore<T, K> {
         ],
       );
     }
+  }
+
+  void _updateIndexInternalSingleStatement(Iterable<T> entities) {
+    if (_indexColumns._indexColumns.values.isEmpty) {
+      return;
+    }
+
+    _database.execute(
+      [
+        'INSERT INTO `index` (`type`, `entity`, `field`, `value`, `referenced_type`, `unique`) '
+            ' VALUES (?1, ?, ?, ?, ?, ?)',
+        // Add additional entry values for each further entity
+        ', (?1, ?, ?, ?, ?, ?)' *
+            (entities.length * _indexColumns._indexColumns.values.length - 1),
+      ].join(' '),
+      [
+        _entityKey,
+        for (final indexColumn in _indexColumns._indexColumns.values)
+          for (final e in entities) ...[
+            _connector.getPrimaryKey(e),
+            indexColumn._field,
+            indexColumn._getIndexValue(e),
+            indexColumn._referencedEntity,
+            indexColumn._unique,
+          ],
+      ],
+    );
   }
 
   /// Delete the specified entries
