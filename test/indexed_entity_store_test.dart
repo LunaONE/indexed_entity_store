@@ -111,8 +111,50 @@ void main() {
       hasLength(2),
     );
 
-    // delete initial
-    fooStore.delete(key: 99);
+    // add a third entity with different values
+    fooStore.write(
+      _FooEntity(id: 999, valueA: 'aaa', valueB: 22, valueC: true),
+    );
+
+    expect(
+      fooStore.queryOnce(where: (cols) => cols['b'].greaterThanOrEqual(2)),
+      hasLength(3),
+    );
+    expect(
+      fooStore.queryOnce(
+        where: (cols) => cols['b'].greaterThan(2) & cols['b'].lessThan(22),
+      ),
+      isEmpty,
+    );
+    expect(
+      fooStore.queryOnce(
+        where: (cols) => cols['b'].greaterThan(1) & cols['b'].lessThan(22),
+      ),
+      hasLength(2),
+    );
+    expect(
+      fooStore.queryOnce(
+        where: (cols) =>
+            cols['b'].greaterThan(1) & cols['b'].lessThanOrEqual(22),
+      ),
+      hasLength(3),
+    );
+    expect(
+      fooStore.queryOnce(
+        where: (cols) =>
+            cols['b'].greaterThan(2) & cols['b'].lessThanOrEqual(22),
+      ),
+      hasLength(1),
+    );
+    expect(
+      fooStore.queryOnce(
+        where: (cols) => cols['b'].greaterThan(2),
+      ),
+      hasLength(1),
+    );
+
+    // delete initial & latest
+    fooStore.delete(keys: [99, 999]);
     expect(fooStore.queryOnce(), hasLength(1));
     expect(
       fooStore.queryOnce(where: (cols) => cols['a'].equals('a')),

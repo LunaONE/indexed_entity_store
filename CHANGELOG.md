@@ -1,3 +1,7 @@
+## 2.0.2
+
+* Use explicit precedence, fixing a potential issue when using 3 or more filters
+
 ## 2.0.1
 
 * Add tests for internal schema migrations

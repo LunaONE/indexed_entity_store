@@ -23,7 +23,7 @@ class _AndQuery extends Query {
   @override
   (String, List<dynamic>) _entityKeysQuery() {
     return (
-      ' ${first._entityKeysQuery().$1} INTERSECT ${second._entityKeysQuery().$1} ',
+      ' SELECT * FROM ( ${first._entityKeysQuery().$1} INTERSECT ${second._entityKeysQuery().$1} ) ',
       [...first._entityKeysQuery().$2, ...second._entityKeysQuery().$2],
     );
   }
@@ -38,7 +38,7 @@ class _OrQuery extends Query {
   @override
   (String, List<dynamic>) _entityKeysQuery() {
     return (
-      ' ${first._entityKeysQuery().$1} UNION ${second._entityKeysQuery().$1} ',
+      ' SELECT * FROM ( ${first._entityKeysQuery().$1} UNION ${second._entityKeysQuery().$1} ) ',
       [...first._entityKeysQuery().$2, ...second._entityKeysQuery().$2],
     );
   }
